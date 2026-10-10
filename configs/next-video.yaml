@@ -1,0 +1,42 @@
+# Punto de partida independiente; valores omitidos usan dataclasses, NO default.yaml.
+# Video TODAVÍA NO grabado: aproximadamente 1280x720, 30 fps, montaje a 30 grados.
+# Geometría SIN VALIDAR. Recalibrar sobre la puerta nueva antes de evaluar.
+# La inclinación no implica corrección de perspectiva ni líneas oblicuas.
+source:
+  type: file
+  path: data/PENDIENTE-proximo-video.mp4
+  # En archivo width/height no redimensionan: manda el contenido decodificado.
+  width: 1280
+  height: 720
+  queue_size: 2
+  realtime: false
+  loop: false
+detection:
+  model: models/yolov8n.pt  # Pesos locales; no hay descarga automática.
+  tracker: bytetrack.yaml
+  imgsz: 320
+  conf: 0.35
+  vid_stride: 1
+  roi_left: 0.0
+  roi_top: 0.0
+  roi_right: 1.0
+  roi_bottom: 1.0
+counting:
+  # Defaults del tripwire como propuesta inicial, sin copiar calibración histórica.
+  mode: tripwire
+  orientation: horizontal
+  position: 0.5
+  band_half_width: 0.04
+  enter_direction: positive
+  # Si se elige dual_zone, calibrar zone_a_max/zone_b_min y max_missing_seconds > 0.
+occupancy:
+  capacity: 100
+  initial: 0
+  green_below: 0.40
+  red_above: 0.75
+visualization:
+  stream: false
+  show_trails: false
+debug:
+  show_video: false
+  counting: false

@@ -343,7 +343,7 @@ El fondo de carga no estuvo aislado. No se validaron aglomeraciones, oclusiones,
 contraluz ni la cámara definitiva. El error observado exige calibración y más
 datos antes de presentar este prototipo como contador fiable.
 
-## Nota del nuevo montaje — 2026-10-06
+## Nota del nuevo montaje — etapa tripwire histórica, 2026-10-06
 
 La evaluación de `data/demo2.mov` está separada en door-demo-baseline.json y
 [door-demo-evaluation.json](door-demo-evaluation.json): 2038 frames reproducibles,
@@ -353,4 +353,33 @@ fuse_score y cinco ausencias: **52.475 FPS, 4/1** frente a 12/13.
 Son tasas de una pasada completa, primera inferencia incluida, sin overlay/JPEG;
 carga del modelo fuera del reloj y carga externa sin controlar. **No se repite ni
 se sustituye el benchmark histórico** y no se certifica FPS con dashboard nuevo.
-La precisión sigue insuficiente; validación final repetida y demo integrada detenidas.
+La precisión seguía insuficiente y en esa etapa se detuvo la validación final
+repetida/demo integrada. La reanudación con compuerta se describe a continuación.
+
+
+## Compuerta actual y siguiente entrada — actualizado 2026-10-10
+
+El perfil door-demo actual usa dual_zone A=.40/B=.65, TTL .9 s, observaciones de
+zona y unión conservadora de fragmentos. Resultado histórico posterior al
+tripwire: **8/12 frente a 12/13 (20% agregado)**; dos pasadas de 2038 frames con
+misma secuencia, **26.913/26.158 FPS** sin overlay/JPEG. Smoke de dashboard:
+**22.83 FPS**. Evidencia separada: [door-gate-evaluation.json](door-gate-evaluation.json).
+No se sobrescriben ni repiten los pilotos/barridos/JSON anteriores. Esa mejora
+no certifica precisión y los promedios de demo no prueban capacidad sostenida
+ni latencia. min_zone_frames mide observaciones conservables durante ausencia
+admitida, no necesariamente frames consecutivos del archivo.
+
+En esta auditoría solo hubo pruebas sintéticas. El próximo video no existe;
+720p/30 fps/30° son previsiones de montaje, no metadatos medidos. El perfil
+configs/next-video.yaml conserva defaults como propuesta sin validar; el código
+no rectifica perspectiva ni admite franjas oblicuas. Hay que recalibrar.
+
+Benchmark acepta --config y --video; si se omite --video ahora usa source.path
+(en comandos históricos el default era data/demo1.mov). Para reproducir esa
+entrada histórica especifique --video data/demo1.mov. --real-only permite medir
+únicamente la próxima entrada, sin la comparación AVI. La evaluación desactiva
+loop/realtime y no reutiliza verified-frames=2038. Destinos JSON deben ser nuevos.
+Comandos de próxima validación en README; **no hay una medición nueva del video
+pendiente ni de una cámara física**. Descartes live y buffers del dispositivo/
+FFmpeg afectan latencia; el buffer de ByteTrack cuenta actualizaciones y no es
+un TTL exacto en segundos bajo descartes/cadencia irregular.

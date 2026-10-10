@@ -1,5 +1,11 @@
 # Progreso
 
+**Resumen 2026-10-10:** bugs de sincronización, leyenda, simulación, debug y
+backpressure corregidos. Regresión completa: **339 passed in 15.95s**.
+La compuerta histórica sigue en 8 IN / 12 OUT frente a 12/13, sin nuevos ajustes
+ni evaluación de videos privados. Herramientas preparadas para el próximo video
+(~720p/30 fps/30°), todavía inexistente; precisión/cámara/rendimiento pendientes.
+
 ## Hito 1 — completado
 - Implementados esqueleto, configuración validada, captura de archivo en hilo,
   YOLOv8n/ByteTrack en CPU, filtrado de área y vista anotada local optativa.
@@ -338,7 +344,7 @@
   El mal conteo es un resultado documentado que requiere una futura tarea de
   calibración. **Hito 6 no iniciado**; cambios previos de AGENTS.md preservados.
 
-## Estado actual
+## Estado actual — actualizado 2026-10-10
 
 | Hito | Estado | Commit / evidencia |
 | --- | --- | --- |
@@ -346,8 +352,9 @@
 | 2 | Completado | `130cd6e`, 48 tests + demo CPU con conteos |
 | 3 | Completado | `99f4602`, 61 tests + transporte HTTP real |
 | 4 | Completado | 83 tests + simulación acotada + API real y AppTest verificados |
-| 4.5 | Validación integrada pendiente | 108 tests aprobados; CLI fake correcta; chequeo HTTP posterior fallido |
-| 5 | Completado: benchmark y evaluación | 134 tests; 144 mediciones conservadas; cinco evaluaciones 6/6; demo MOV verificada por HTTP/AppTest; precisión actual insuficiente |
+| 4.5 | Implementación e integración verificadas | Compuerta/overlay/calibración verificados el 06-10; regresión sintética de auditoría aprobada; precisión pendiente |
+| 5 | Mediciones históricas completas | 144 mediciones conservadas; compuerta actual demo2 8/12 frente a 12/13, 20% agregado; precisión insuficiente; próximo video sin medir |
+| 6 | Uso/decisiones/límites actualizados | Perfil pendiente y guía de archivo/USB/HTTP/RTSP; cámara física y validación independiente pendientes |
 
 ## Calibración y diagnóstico — contador (2026-10-02)
 
@@ -686,3 +693,32 @@
   tests/test_live_sources.py tests/test_file_source.py tests/test_file_playback.py`
   → **35 passed in 1.77s**, HTTP loopback sintético autorizado. Sin fallos.
 - Siguiente: perfil pendiente, flujo 720p/30 fps sintético, CLI y documentación.
+
+### Etapa 4 — próxima validación y cierre, 2026-10-10
+
+- Perfil independiente configs/next-video.yaml, ruta PENDIENTE, privacidad apagada
+  y geometría tripwire default sin validar. No se heredan default.yaml ni la
+  calibración/confianza/ROI de videos anteriores. Ninguna ruta privada abierta.
+- Flujo sintético 1280×720 y timestamps index/30: ROI no trivial → cajas/centroides
+  completos normalizados → contador real en ambos modos → ocupación → overlay.
+  Una entrada/una salida, pico 1/saldo final 0; frame original intacto. Detector/
+  tracking simulados: no certifica YOLO, cámara ni precisión con personas.
+- Evaluador probado con perfil y ruta explícita, sin loop/realtime, referencia
+  verified_frames ausente y rechazo de sobrescritura. Benchmark toma source.path
+  si falta --video; --real-only permite medir la próxima entrada sin otros videos.
+  Pruebas de su CLI simulan medición/metadatos: no se ejecutó benchmark privado.
+- Etapa focalizada: `.venv/bin/python -m pytest -q tests/test_next_validation.py
+  tests/test_detector.py tests/test_benchmark.py tests/test_evaluation_diagnostics.py
+  tests/test_overlay.py tests/test_config.py` → **107 passed in 1.28s**.
+- Regresión final: `.venv/bin/python -m pytest -q` con sockets exclusivamente
+  locales autorizados → **339 passed in 15.95s**, sin fallos. CLI --help de
+  evaluate_counts, benchmark_fps y run_demo ejecutadas con código 0.
+- README, DECISIONS, LIMITATIONS y nota BENCHMARK distinguen histórico/compuerta
+  actual, observaciones de zona, perfiles independientes, ángulo sin rectificación,
+  parámetros solicitados/observados, FPS sin garantía y buffer por actualizaciones.
+  Resultados/JSON históricos intactos. Repo sigue público; sin PR, dependencia,
+  descarga automática de pesos ni persistencia de imágenes/frames/videos.
+- No queda un fallo de software conocido de esta auditoría pendiente. Siguiente:
+  grabar nuevo video, recalibrar puerta y etiquetar cruces; evaluar a destinos
+  nuevos y luego validar transporte/cámara física. **Precisión no resuelta,
+  cámara no comprobada y rendimiento del próximo video no medido.**

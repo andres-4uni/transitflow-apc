@@ -36,12 +36,15 @@ Los pesos se descargan una vez, antes de la demo.
 
 La línea horizontal cuenta entrada hacia abajo por defecto (`positive`).
 Use `up/down` para horizontal y `left/right` para vertical; `positive/negative`
-se conservan por compatibilidad. Ajuste `position` y
+se conservan por compatibilidad. En **tripwire**, ajuste `position` y
 `band_half_width` en coordenadas 0–1. El resumen incluye entradas, salidas y ocupación.
 `occupancy.initial` calibra la ocupación al iniciar; la API Python ofrece
 `OccupancyCounter.calibrate(n)`, `reset()` y `TripwireCounter.reset()`.
 `counting.mode: dual_zone` selecciona la compuerta A/neutro/B mediante el mismo
-pipeline. `max_missing_seconds > 0` usa tiempo de la fuente; `0` conserva el
+pipeline: **dual_zone usa `zone_a_max`/`zone_b_min`, no position/band_half_width**.
+`min_zone_frames` cuenta observaciones en la zona candidata y conserva presencias
+durante una ausencia tolerada; no garantiza frames consecutivos del video.
+`max_missing_seconds > 0` usa tiempo de la fuente; `0` conserva el
 presupuesto histórico por frames del tripwire. Ambos contadores ofrecen `reset()`.
 
 ## Fuentes
@@ -281,7 +284,11 @@ scripts y `APC_CONFIG=ruta/configs/default.yaml streamlit run dashboard/app.py`.
 
 Campos por vagón: `wagon_id`, `entries`, `exits`, `initial_occupancy`, `occupancy`,
 `capacity`, `level` (0 verde, 1 amarillo, 2 rojo), `timestamp` (Unix), `fps` y
-`simulated` (0/1). `/telemetry` no transmite imágenes, coordenadas ni IDs de personas.
+`simulated` (0/1), `green_below` y `red_above` (razones 0–1 del productor).
+La leyenda utiliza esos umbrales, incluso con un YAML distinto en el dashboard.
+El cliente admite muestras anteriores sin umbrales y muestra “no informados”.
+Consumidores antiguos que rechazan campos adicionales deben actualizar su esquema;
+los campos existentes conservan nombre y significado. `/telemetry` no transmite imágenes, coordenadas ni IDs de personas.
 No ejecute dos publicadores en el mismo puerto. `Ctrl+C` libera servidor y fuente.
 
 ## Vista en vivo anotada — hito 4.5
@@ -383,7 +390,7 @@ python scripts/evaluate_counts.py --video data/demo1.mov --expected-in 6 --expec
 
 # Máxima velocidad: sin realtime, 12 combinaciones, stream apagado/encendido,
 # video real y AVI sintético preexistente, warmup 30, tres repeticiones.
-python scripts/benchmark_fps.py --torch-threads 4 --output docs/nueva-medicion.json
+python scripts/benchmark_fps.py --video data/demo1.mov --torch-threads 4 --output docs/nueva-medicion.json
 ```
 
 El benchmark conserva solo estadísticas JSON y rechaza sobrescribir resultados.
@@ -402,3 +409,75 @@ confianza automáticamente a este video.
 
 Estado: [PROGRESS](docs/PROGRESS.md). Supuestos: [DECISIONS](docs/DECISIONS.md).
 Alcance: [LIMITATIONS](docs/LIMITATIONS.md).
+
+## Próximo video y futura cámara — preparación 2026-10-10
+
+`configs/next-video.yaml` es un perfil **independiente**, con ruta local
+`data/PENDIENTE-proximo-video.mp4`. El archivo todavía no existe y no se abrió
+para esta corrección. Campos omitidos usan defaults de dataclasses; ningún perfil
+hereda `default.yaml`. Tripwire, ROI completo y confianza siguen sus defaults:
+la geometría del ejemplo **no está validada** sobre la puerta nueva.
+
+El montaje previsto es aproximadamente 1280×720 / 30 fps e inclinación de 30°.
+El código no rectifica perspectiva ni admite líneas/franjas oblicuas: solo ejes
+horizontal/vertical. Recalibre observando la puerta, defina sentido y mida cruces
+individuales con referencia temporal antes de evaluar precisión.
+
+Cuando exista el archivo, use su ruta explícita y conteos manuales reales:
+
+```sh
+# Defina VIDEO, IN_MANUAL y OUT_MANUAL con la ruta y referencias del nuevo video.
+.venv/bin/python scripts/evaluate_counts.py --config configs/next-video.yaml --video "$VIDEO" --expected-in "$IN_MANUAL" --expected-out "$OUT_MANUAL" --diagnostics --output docs/next-video-evaluation-01.json
+
+# Tres repeticiones, solo esa entrada; mide overlay/JPEG apagado y encendido en RAM.
+.venv/bin/python scripts/benchmark_fps.py --config configs/next-video.yaml --video "$VIDEO" --real-only --imgsz 320 --vid-stride 1 --warmup 30 --repeats 3 --output docs/next-video-benchmark-01.json
+```
+
+Ambas herramientas rechazan destinos existentes; cambie el sufijo para otra
+pasada. Evaluación desactiva loop/realtime incluso si están activos en el perfil;
+benchmark real usa una pasada sin realtime. No use `--verified-frames 2038`:
+ese número corresponde exclusivamente a demo2; omita el flag hasta contar con
+una referencia independiente del archivo nuevo. No hay resultados de rendimiento
+ni precisión del video pendiente. El benchmark toma `source.path` si se omite
+`--video`; `--real-only` evita depender del AVI histórico. Sin ese flag conserva
+la comparación sintética preexistente; imgsz/stride siguen siendo un barrido si
+no se especifican explícitamente como arriba.
+
+Para seleccionar fuente de demo, copie **solo el perfil YAML** a
+`configs/live-demo.yaml` y edite su bloque `source` (no cambie Python):
+
+| Fuente | Bloque source | Datos reales / solicitudes |
+| --- | --- | --- |
+| Archivo | `type: file`, `path: /ruta/local/nuevo.mp4`, `loop: false`, `realtime: false` | Resolución/FPS/frames se leen del archivo; width/height YAML no lo redimensionan. |
+| Webcam/USB | `type: webcam`, `index: 0`, `width: 1280`, `height: 720` | Índice selecciona dispositivo; width/height son solicitudes que puede rechazar. |
+| HTTP/RTSP | `type: stream`, `url: http://IP/video` o `rtsp://IP/flujo` | FFmpeg lee el flujo ofrecido; width/height YAML no negocian resolución. Timeouts de apertura/lectura son solicitudes al backend. |
+
+No se configura un FPS objetivo para la cámara. CAP_PROP_FPS informa una tasa
+nominal del backend (puede faltar); los píxeles decodificados determinan resolución
+real, y timestamps de captura/contenido rigen el contador. Solicitar 1280×720 no
+promete 30 fps efectivos. **OV3660 identifica un sensor, no el transporte**:
+confirme si el equipo completo ofrece USB, HTTP o RTSP antes de elegir fuente.
+
+```sh
+.venv/bin/python scripts/run_demo.py --config configs/live-demo.yaml
+APC_CONFIG=configs/live-demo.yaml .venv/bin/python -m streamlit run dashboard/app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+Para usar el archivo en la demo, cambie la ruta pendiente en next-video.yaml y
+seleccione ese perfil con `--config`. Stream y debug permanecen apagados por
+defecto; una revisión visual exige activar explícitamente stream en el perfil
+local o usar `--debug`. API/MJPEG continúan exclusivamente en 127.0.0.1.
+Mover un control válido actualiza la vista y reinicia conteos; consultar no.
+Un reinicio del productor adopta su geometría si no hay borrador pendiente.
+Ante cambio externo/reinicio con edición pendiente, el panel conserva el borrador
+y exige elegir “Usar configuración del productor” o “Aplicar edición local”.
+Guardar sigue siendo un botón explícito; revisión pendiente espera el próximo
+frame y un envío fallido no se reintenta automáticamente.
+
+Los FPS mostrados por demo/dashboard son promedios de ejecución, no certifican
+capacidad sostenida ni latencia. La cola live acotada reemplaza frames sin esperar,
+pero dispositivo/driver/FFmpeg pueden conservar buffers anteriores. ByteTrack
+vence por **actualizaciones de inferencia**: su buffer nominal no equivale
+exactamente a segundos cuando se descartan frames o cambia la cadencia.
+Las pruebas sintéticas 720p/30 fps verifican el flujo de coordenadas y eventos;
+no comprueban detección YOLO sobre personas, montaje físico ni precisión APC.

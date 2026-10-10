@@ -249,3 +249,27 @@ latencia antes de timestamp/read y no se ha medido con una cámara física.
 El cierre deja sin hilos los backends que responden a read/timeouts; no puede
 interrumpir de manera segura un driver que bloquee indefinidamente. Ese caso
 continúa informando error de cierre, como antes de la corrección.
+
+## Próximo montaje y contrato — 2026-10-10
+
+- Video pendiente (~1280×720/30 fps/30°): geometría del perfil de ejemplo sin
+  validar. La inclinación es información de montaje; no hay rectificación de
+  perspectiva ni líneas/franjas oblicuas. Recalibrar en la puerta nueva.
+- position/band_half_width se usan en tripwire; dual_zone utiliza A/B. Los perfiles
+  independientes usan defaults de dataclasses, sin heredar default.yaml.
+  min_zone_frames cuenta observaciones de zona, conservables en una ausencia
+  tolerada; no necesariamente frames consecutivos. No se cambia el TTL actual.
+- FPS de demo/dashboard no certifica capacidad sostenida ni latencia. ByteTrack
+  vence por actualizaciones; descartar frames altera la equivalencia con segundos.
+  Ninguna cámara definitiva está probada, ni se prometen 30 fps efectivos.
+- Width/height son solicitudes a webcam/USB; archivo/stream usan frame decodificado.
+  Los timeouts de FFmpeg requieren soporte del backend. CAP_PROP_FPS puede ser
+  nominal/incorrecto. OV3660 es un sensor: confirmar el transporte del equipo.
+- Telemetría añade green_below/red_above numéricos; el cliente nuevo admite
+  productores anteriores con umbrales desconocidos. Consumidores antiguos que
+  rechazan claves adicionales deben actualizarse. Calibración añade session_id
+  (del productor, no persona) y expected opcional para rechazar POST obsoletos.
+  Con un productor antiguo sin session_id no se distingue todo reinicio idéntico.
+- La regresión 720p es sintética con detector simulado; verifica coordenadas,
+  eventos y ausencia de mutación del frame. No prueba recall YOLO, identidad de
+  personas, precisión APC ni hardware físico. La precisión sigue pendiente.

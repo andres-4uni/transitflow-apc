@@ -313,3 +313,22 @@
 - No se ajustan buffers del dispositivo/driver/FFmpeg: pueden introducir latencia
   adicional antes de esta cola. Una webcam cuyo read queda bloqueado sigue
   requiriendo que su backend responda; close informa si supera el timeout.
+
+## Preparación independiente — 2026-10-10
+
+- next-video.yaml conserva defaults de dataclasses, tripwire y ROI completo como
+  punto de partida sin calibración validada. No hereda default.yaml ni perfiles
+  históricos. La ruta PENDIENTE nunca se abre durante esta tarea; 720p/30 fps/30°
+  son previsiones, no una medición. No se añade perspectiva/oblicuas ni parámetro
+  FPS inexistente al dispositivo. min_zone_frames ya está aclarado sin algoritmo nuevo.
+- Benchmark --video opcional usa source.path del perfil (antes default demo1.mov);
+  --real-only evita necesitar otra entrada. Comparación/barrido históricos siguen
+  disponibles explícitamente. Pruebas CLI simulan medición y validan elección de
+  ruta, una pasada sin realtime y escritura exclusiva de JSON a destino nuevo.
+- Webcam solicita width/height; archivo/stream usan dimensiones de frame reales.
+  CAP_PROP_FPS es información nominal del backend, no promesa efectiva; no se
+  solicita 30 fps. OV3660 no decide transporte. Contador sigue usando timestamps
+  de captura/contenido, ByteTrack actualizaciones y demo promedios de pared.
+- Mantener privacidad, API/MJPEG loopback, stack y dependencias. Ningún resultado
+  histórico se sobrescribe, ningún video privado se procesa y ningún peso se
+  descarga. Validación real de precisión/cámara/rendimiento queda para después.

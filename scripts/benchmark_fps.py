@@ -31,8 +31,9 @@ def busy_seconds(cpu_times):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/default.yaml")
-    parser.add_argument("--video", default="data/demo1.mov")
+    parser.add_argument("--video", help="Archivo local; por defecto source.path del perfil")
     parser.add_argument("--synthetic-video", default="data/demo.avi", help="AVI sintético preexistente; no se genera un archivo")
+    parser.add_argument("--real-only", action="store_true", help="Medir solo el video elegido, sin comparación sintética")
     parser.add_argument("--imgsz", type=int, nargs="+", choices=tuple(range(320, 641, 32)), default=[320, 352, 384, 416])
     parser.add_argument("--vid-stride", type=int, nargs="+", choices=(1, 2, 3), default=[1, 2, 3])
     parser.add_argument("--torch-threads", type=int, default=None)
@@ -48,7 +49,9 @@ def main(argv=None):
     config = load_config(args.config)
     thread_count = config.detection.torch_threads if args.torch_threads is None else args.torch_threads
     # PersonDetector configura caches locales antes de importar/cargar el modelo.
-    paths = {"real": config.resolve(args.video), "synthetic": config.resolve(args.synthetic_video)}
+    paths = {"real": config.resolve(args.video or config.source.path)}
+    if not args.real_only:
+        paths["synthetic"] = config.resolve(args.synthetic_video)
     initial_stats = {key: (path.stat().st_size, path.stat().st_mtime_ns) for key, path in paths.items()}
     report = {
         "date_utc": datetime.now(timezone.utc).isoformat(),
@@ -61,7 +64,7 @@ def main(argv=None):
         "method": {"warmup_processed_frames": args.warmup, "repeats": args.repeats,
                    "realtime": False, "max_frames": args.max_frames,
                    "configuration_order_seed": 17, "http_transport_measured": False,
-                   "synthetic_loop_matches_real_frame_count": True},
+                   "synthetic_loop_matches_real_frame_count": not args.real_only},
         "baseline_config": {section: asdict(getattr(config, section)) for section in
                             ("detection", "counting", "visualization")},
         "sources": {key: {"path": str(path.relative_to(config.root)) if path.is_relative_to(config.root) else path.name,
@@ -73,7 +76,7 @@ def main(argv=None):
     for imgsz, stride in combinations:
         detection = replace(config.detection, imgsz=imgsz, vid_stride=stride, torch_threads=thread_count)
         detector = PersonDetector(detection, config.resolve(detection.model))
-        for source_name in ("real", "synthetic"):
+        for source_name in paths:
             for stream in (False, True):
                 run_config = replace(config, detection=detection,
                                      visualization=replace(config.visualization, stream=stream))
