@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 from tempfile import NamedTemporaryFile
 from threading import RLock
+from uuid import uuid4
 
 import yaml
 
@@ -104,13 +105,15 @@ class CalibrationSession:
         self.config_path = Path(config_path).expanduser().resolve()
         self.source_type = config.source.type
         self._counting = config.counting
+        self.session_id = uuid4().hex  # Identifica el productor, nunca a una persona.
         self._revision = 0
         self._applied_revision = 0
         self._lock = RLock()
 
     def snapshot(self) -> dict:
         with self._lock:
-            return {"counting": counting_values(self._counting), "revision": self._revision,
+            return {"session_id": self.session_id,
+                    "counting": counting_values(self._counting), "revision": self._revision,
                     "applied_revision": self._applied_revision, "source_type": self.source_type,
                     "config_path": str(self.config_path)}
 
@@ -129,16 +132,22 @@ class CalibrationSession:
             raise ValueError("counting debe ser un mapa")
         return counting_from_dict({**counting_values(self._counting), **values})
 
-    def apply(self, values: dict) -> dict:
+    def _check_expected(self, expected: dict | None) -> None:
+        if expected is not None and expected != {"session_id": self.session_id, "revision": self._revision}:
+            raise ValueError("El productor cambió; revise la calibración antes de enviar de nuevo")
+
+    def apply(self, values: dict, *, expected: dict | None = None) -> dict:
         with self._lock:
+            self._check_expected(expected)
             proposed = self._proposal(values)
             if proposed != self._counting:
                 self._counting = proposed
                 self._revision += 1
             return self.snapshot()
 
-    def save(self, values: dict) -> dict:
+    def save(self, values: dict, *, expected: dict | None = None) -> dict:
         with self._lock:
+            self._check_expected(expected)
             proposed = self._proposal(values)
             destination = save_calibration(self.config_path, proposed)
             return {"saved_path": str(destination), "counting": counting_values(proposed)}

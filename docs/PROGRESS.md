@@ -637,3 +637,22 @@
 - Verificación final **277 passed in 12.56s**, `git diff --check` limpio para el
   trabajo nuevo, perfil/JSON/resultados coherentes. Visores y servidores de prueba
   cerrados; sin procesos de inferencia de la tarea dejados activos.
+
+## Auditoría y preparación — etapa 1, 2026-10-10
+
+- Git inicial `457d96d`; diferencias previas en AGENTS.md, default.yaml y
+  docs/counting-evaluation.json conservadas y excluidas de los commits propios.
+- Corregidos reinicio del productor bajo la misma ruta, actualización externa,
+  conservación de borradores/conflictos, polling sin POST y reintento explícito.
+  Control condicional sesión/revisión en apply/save evita escrituras obsoletas.
+- Leyenda usa umbrales numéricos del productor; contrato aditivo/compatibilidad
+  documentados en DECISIONS. AppTest cubre reinicio .61→.70, cambios externos,
+  conflictos, controles intactos y perfiles con umbrales distintos.
+- Primera ejecución: 8 failed / 36 passed (2.32 s): un mock no aceptaba `expected`
+  y siete pruebas requerían sockets loopback bloqueados por sandbox. Mock corregido
+  y ejecución local autorizada antes de avanzar. Resultado intermedio: 56 passed
+  (8.07 s); tras cubrir polling con envío fallido: **57 passed in 8.12s**.
+- Comando: `.venv/bin/python -m pytest -q tests/test_dashboard_calibration.py
+  tests/test_dashboard.py tests/test_calibration.py tests/test_telemetry.py
+  tests/test_simulation.py`. Sin videos privados ni persistencia de imágenes.
+- Siguiente: simulación dual_zone y retiro del estado diagnóstico de aliases.

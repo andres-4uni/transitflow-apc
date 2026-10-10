@@ -262,3 +262,26 @@
   conserva una salida y pierde la entrada burgundy simultánea. No usar el menor
   error agregado como criterio de selección; anotar cruces antes de comparar
   precision/recall. Mantener el paradigma pedido y documentar el intercambio.
+
+## Correcciones de auditoría — dashboard, 2026-10-10
+
+- Cada CalibrationSession crea un `session_id` nuevo, independiente de ruta,
+  fuente y modo. El dashboard compara sesión/revisión/configuración con su último
+  estado aceptado. Las consultas adoptan cambios externos sin POST ni reinicio.
+  Un borrador pendiente se conserva y exige elegir productor o edición local.
+  Un fallo de envío no provoca reintentos por polling; se reintenta explícitamente.
+- Apply/save admiten `expected: {session_id, revision}` opcional: se comprueba bajo
+  el mismo lock para rechazar una escritura si el productor cambió entre GET y
+  POST. Solicitudes anteriores sin `expected` siguen aceptadas. Guardar continúa
+  siendo exclusivamente explícito. Un productor antiguo sin session_id permite
+  detectar cambios de valores/revisión, pero no todo reinicio idéntico.
+- `/telemetry` añade por vagón `green_below` y `red_above`, razones numéricas 0–1
+  del productor. Make_sample y simulación las publican; cliente valida rango y
+  coherencia con level. Dashboard muestra leyenda por grupo de umbrales cuando
+  difieren por vagón. Nunca usa el YAML local para inferirlos.
+- Compatibilidad: no se retiran ni renombran campos. El cliente nuevo lee muestras
+  anteriores con ambos umbrales ausentes (-1/-1 interno = desconocidos) y muestra
+  un aviso sin inventar leyenda. Consumidores que ignoran campos extra siguen
+  compatibles; consumidores antiguos con esquema estricto deben actualizarse
+  para aceptar estos dos campos adicionales. Telemetría solo numérica, sin IDs
+  de personas; session_id pertenece exclusivamente al endpoint de calibración.

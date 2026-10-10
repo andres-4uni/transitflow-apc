@@ -20,6 +20,9 @@ class TelemetrySample:
     timestamp: float  # Segundos Unix del último frame procesado.
     fps: float
     simulated: int = 0
+    # -1/-1 indica un consumidor/productor anterior que no informa umbrales.
+    green_below: float = -1.0
+    red_above: float = -1.0
 
     def __post_init__(self):
         integer_values = (self.wagon_id, self.entries, self.exits, self.initial_occupancy,
@@ -31,6 +34,16 @@ class TelemetrySample:
         for value in (self.timestamp, self.fps):
             if type(value) not in (int, float) or not isfinite(value) or value < 0:
                 raise ValueError("Timestamp o FPS inválidos")
+        thresholds = (self.green_below, self.red_above)
+        if any(type(value) not in (int, float) or not isfinite(value) for value in thresholds):
+            raise ValueError("Umbrales de telemetría inválidos")
+        if thresholds != (-1, -1):
+            if not 0 <= self.green_below < self.red_above <= 1:
+                raise ValueError("Umbrales de telemetría inválidos")
+            ratio = self.occupancy / self.capacity
+            expected = 0 if ratio < self.green_below else 2 if ratio > self.red_above else 1
+            if self.level != expected:
+                raise ValueError("Nivel incompatible con los umbrales del productor")
         if self.occupancy != max(0, self.initial_occupancy + self.entries - self.exits):
             raise ValueError("Saldo de ocupación inconsistente")
 
@@ -40,7 +53,8 @@ def make_sample(wagon_id: int, counter: OccupancyCounter, fps: float,
     return TelemetrySample(wagon_id, counter.entries, counter.exits, counter.initial,
                            counter.occupancy, counter.config.capacity,
                            {"green": 0, "yellow": 1, "red": 2}[counter.color],
-                           time() if timestamp is None else timestamp, fps, int(simulated))
+                           time() if timestamp is None else timestamp, fps, int(simulated),
+                           counter.config.green_below, counter.config.red_above)
 
 
 class TelemetryStore:

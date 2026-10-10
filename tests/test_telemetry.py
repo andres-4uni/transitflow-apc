@@ -78,3 +78,29 @@ def test_simulation_has_several_wagons_and_all_colors():
     assert all(sample.simulated == 1 for sample in samples)
     later = simulation_samples(load_config(), 20, 110)
     assert any(a.occupancy != b.occupancy for a, b in zip(samples, later))
+
+
+@pytest.mark.parametrize('thresholds', [(0.2, 0.5), (0.6, 0.9)])
+def test_producer_thresholds_survive_http_and_simulation(thresholds):
+    config = load_config()
+    config = replace(config, occupancy=replace(config.occupancy,
+                                              green_below=thresholds[0], red_above=thresholds[1]))
+    samples = simulation_samples(config, 0, 100)
+    store = TelemetryStore()
+    for sample in samples:
+        store.publish(sample)
+    with TelemetryPublisher(store, port=0) as publisher:
+        assert fetch_samples(publisher.port) == samples
+    assert all((s.green_below, s.red_above) == thresholds for s in samples)
+
+
+def test_legacy_samples_and_threshold_validation():
+    from apc.publisher.telemetry import TelemetrySample
+    sample = make_sample(1, OccupancyCounter(OccupancyConfig(initial=40)), 23, timestamp=100)
+    row = asdict(sample)
+    del row['green_below'], row['red_above']
+    assert TelemetrySample(**row).green_below == -1
+    for changes in ({'green_below': float('nan')}, {'green_below': True},
+                    {'red_above': 1.1}, {'green_below': -1}, {'level': 0}):
+        with pytest.raises(ValueError):
+            replace(sample, **changes)

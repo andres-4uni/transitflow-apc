@@ -65,7 +65,31 @@ def render_calibration():
     except (OSError, ValueError, TypeError):
         st.caption("Calibración no disponible. Inicie run_demo.py con el perfil de la fuente que desea calibrar.")
         return
-    values = active["counting"]
+    # Comparar contra el último estado aceptado, no contra la ruta del YAML.
+    control_fields = {"cal_orientation": "orientation", "cal_position": "position",
+                      "cal_band": "band_half_width", "cal_direction": "enter_direction",
+                      "cal_zone_a": "zone_a_max", "cal_zone_b": "zone_b_min"}
+    baseline = st.session_state.get("calibration_baseline")
+    dirty = baseline is not None and any(
+        key in st.session_state and st.session_state[key] != baseline["counting"][field]
+        for key, field in control_fields.items())
+    remote_changed = baseline is not None and any(
+        baseline.get(key) != active.get(key)
+        for key in ("session_id", "config_path", "source_type", "revision", "counting"))
+    conflict = remote_changed and dirty
+    if conflict:
+        restart = baseline.get("session_id") != active.get("session_id")
+        st.warning(("Nueva sesión del productor" if restart else "Cambio externo de calibración")
+                   + "; hay una edición local pendiente. Elija qué configuración usar.")
+        if st.button("Usar configuración del productor", key="cal_use_producer"):
+            conflict = False
+            dirty = False
+    if baseline is None or (remote_changed and not dirty):
+        for key, field in control_fields.items():
+            st.session_state[key] = active["counting"][field]
+        st.session_state.pop("calibration_saved", None)
+        st.session_state["calibration_baseline"] = baseline = active
+    values = baseline["counting"]
     labels = {"file": "archivo de video", "webcam": "webcam / cámara USB", "stream": "HTTP / RTSP"}
     st.caption(f"Fuente activa: {labels[active['source_type']]} · Perfil: {active['config_path']}")
     dual = values.get("mode", "tripwire") == "dual_zone"
@@ -77,12 +101,6 @@ def render_calibration():
                    "La banda va desde posición − semiancho hasta posición + semiancho.")
         st.caption("En el video: línea sólida = LÍNEA DE CONTEO; límites discontinuos = banda. "
                    "Las flechas IN/OUT muestran el sentido de cada evento.")
-    identity = (active["config_path"], active["source_type"], dual)
-    if st.session_state.get("calibration_identity") != identity:
-        for key in ("cal_orientation", "cal_position", "cal_band", "cal_direction", "cal_zone_a", "cal_zone_b"):
-            st.session_state.pop(key, None)
-        st.session_state.pop("calibration_saved", None)
-        st.session_state["calibration_identity"] = identity
     orientation = st.selectbox("Orientación", ["vertical", "horizontal"],
                                index=["vertical", "horizontal"].index(values["orientation"]),
                                format_func=lambda value: value.capitalize(), key="cal_orientation")
@@ -122,9 +140,19 @@ def render_calibration():
                    f"IN hacia {direction_labels[direction].lower()}.")
     st.caption("Mover los controles actualiza la vista previa y reinicia los conteos de la sesión. "
                "Solo Guardar calibración escribe el perfil para la próxima ejecución.")
-    if valid and proposed != values:
+    expected = ({"session_id": active["session_id"], "revision": active["revision"]}
+                if "session_id" in active else None)
+    resolve_local = conflict and st.button("Aplicar edición local", disabled=not valid, key="cal_use_local")
+    previous_draft = st.session_state.get("calibration_draft")
+    st.session_state["calibration_draft"] = proposed
+    local_changed = proposed != previous_draft
+    retry = (not conflict and proposed != values and not local_changed
+             and st.button("Reintentar vista previa", disabled=not valid, key="cal_retry"))
+    if valid and ((not conflict and proposed != values and (local_changed or retry)) or resolve_local):
         try:
-            active = apply_calibration(config.telemetry.port, proposed)
+            active = apply_calibration(config.telemetry.port, proposed, expected=expected)
+            st.session_state["calibration_baseline"] = active
+            conflict = False
         except (OSError, ValueError, TypeError) as error:
             st.error(f"No se pudo actualizar la vista previa: {error}")
             valid = False
@@ -137,10 +165,12 @@ def render_calibration():
                    "Inicie el contador con configs/video-demo.yaml o configs/live-demo.yaml.")
     else:
         st.caption(f"Guardar actualizará únicamente el perfil activo: {active_path}")
-    if st.button("Guardar calibración", disabled=not valid or protected, key="cal_save"):
+    if st.button("Guardar calibración", disabled=not valid or protected or conflict or proposed != active["counting"], key="cal_save"):
         st.session_state.pop("calibration_saved", None)
         try:
-            result = save_calibration(config.telemetry.port, proposed)
+            expected = ({"session_id": active["session_id"], "revision": active["revision"]}
+                        if "session_id" in active else None)
+            result = save_calibration(config.telemetry.port, proposed, expected=expected)
             st.session_state["calibration_saved"] = (proposed, result["saved_path"])
         except (OSError, ValueError, TypeError) as error:
             st.error(f"No se pudo guardar: {error}")
@@ -192,9 +222,18 @@ def render_live():
           <div class="flow">{note}<br>↑ {sample.entries} entradas &nbsp; ↓ {sample.exits} salidas</div>
         </div>""")
     st.markdown('<div class="train">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
-    green = config.occupancy.green_below * 100
-    red = config.occupancy.red_above * 100
-    st.caption(f"Verde <{green:g}% · Amarillo {green:g}–{red:g}% · Rojo >{red:g}%")
+    thresholds = {(sample.green_below, sample.red_above) for sample in samples}
+    for green_ratio, red_ratio in sorted(thresholds):
+        prefix = ""
+        if len(thresholds) > 1:
+            wagons = ", ".join(str(s.wagon_id) for s in samples
+                               if (s.green_below, s.red_above) == (green_ratio, red_ratio))
+            prefix = f"Vagón(es) {wagons}: "
+        if green_ratio < 0:
+            st.caption(prefix + "Umbrales no informados por el productor antiguo; color recibido del productor.")
+        else:
+            green, red = green_ratio * 100, red_ratio * 100
+            st.caption(prefix + f"Verde <{green:g}% · Amarillo {green:g}–{red:g}% · Rojo >{red:g}%")
     if not simulated and fresh:
         st.caption(f"Procesamiento: {sum(s.fps for s in fresh) / len(fresh):.1f} FPS · "
                    "No se almacenan imágenes ni rostros.")

@@ -65,13 +65,13 @@ class TelemetryPublisher:
                         return
                     self.connection.settimeout(2)
                     payload = json.loads(self.rfile.read(length))
-                    if not isinstance(payload, dict) or set(payload) - {"counting"}:
+                    if not isinstance(payload, dict) or set(payload) - {"counting", "expected"}:
                         raise ValueError("Solicitud de calibración inválida")
                     values = payload.get("counting")
                     if path.endswith("/apply"):
-                        result = calibration.apply(values)
+                        result = calibration.apply(values, expected=payload.get("expected"))
                     else:
-                        result = calibration.save(values)
+                        result = calibration.save(values, expected=payload.get("expected"))
                 except (ValueError, TypeError, UnicodeError) as error:
                     self.send_json(400, {"error": str(error)})
                     return

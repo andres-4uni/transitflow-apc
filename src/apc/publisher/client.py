@@ -39,15 +39,25 @@ def fetch_calibration(port: int, timeout: float = 1) -> dict:
             or any(type(result.get(key)) is not int or result[key] < 0
                    for key in ("revision", "applied_revision"))):
         raise ValueError("Estado de calibración inválido")
+    if "session_id" in result and (not isinstance(result["session_id"], str) or not result["session_id"]):
+        raise ValueError("Sesión de calibración inválida")
+    if result["applied_revision"] > result["revision"]:
+        raise ValueError("Revisión aplicada inválida")
     return result
 
 
-def apply_calibration(port: int, values: dict) -> dict:
-    return _calibration_request(port, "/calibration/apply", {"counting": values})
+def apply_calibration(port: int, values: dict, *, expected: dict | None = None) -> dict:
+    payload = {"counting": values}
+    if expected is not None:
+        payload["expected"] = expected
+    return _calibration_request(port, "/calibration/apply", payload)
 
 
-def save_calibration(port: int, values: dict) -> dict:
-    return _calibration_request(port, "/calibration/save", {"counting": values})
+def save_calibration(port: int, values: dict, *, expected: dict | None = None) -> dict:
+    payload = {"counting": values}
+    if expected is not None:
+        payload["expected"] = expected
+    return _calibration_request(port, "/calibration/save", payload)
 
 
 def fetch_video_status(port: int, timeout: float = 1) -> dict[str, int]:

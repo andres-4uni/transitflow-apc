@@ -236,3 +236,20 @@ def test_demo_applies_preview_in_common_pipeline(profile, source_values, monkeyp
                c.band_half_width == 0.03 and c.entry_direction == "left" for c in overlays[1:])
     assert session.snapshot()["applied_revision"] == 1
     assert profile.read_text() == original
+
+
+def test_session_identity_and_conditional_requests(profile):
+    session = CalibrationSession(load_config(profile), profile)
+    another = CalibrationSession(load_config(profile), profile)
+    assert session.snapshot()['session_id'] != another.snapshot()['session_id']
+    expected = dict(session_id=session.session_id, revision=0)
+    original = profile.read_text()
+    with TelemetryPublisher(TelemetryStore(), port=0, calibration=session) as publisher:
+        apply_calibration(publisher.port, {'position': .6}, expected=expected)
+        for operation in (apply_calibration, save_remote):
+            with pytest.raises(ValueError, match='productor cambió'):
+                operation(publisher.port, {'position': .7}, expected=expected)
+            with pytest.raises(ValueError, match='productor cambió'):
+                operation(publisher.port, {'position': .7},
+                          expected=dict(session_id=another.session_id, revision=1))
+    assert session.current()[0] == 1 and profile.read_text() == original

@@ -67,3 +67,28 @@ def test_video_panel_respects_backend_state_and_local_notice(monkeypatch, enable
     content = " ".join(item.value for item in (*app.info, *app.markdown))
     assert message in content
     assert ('<img src="http://127.0.0.1:8765/video"' in content) == bool(enabled and ready)
+
+
+@pytest.mark.parametrize('green,red,level,label', [(.2, .5, 2, 'Ocupación alta'),
+                                                 (.6, .9, 1, 'Ocupación media')])
+def test_legend_uses_producer_profile(monkeypatch, green, red, level, label):
+    from apc.config import OccupancyConfig
+    from apc.counting.occupancy import OccupancyCounter
+    from apc.publisher.telemetry import make_sample
+    sample = make_sample(1, OccupancyCounter(OccupancyConfig(initial=60, green_below=green, red_above=red)),
+                         20, timestamp=time())
+    assert sample.level == level
+    monkeypatch.setattr(client, 'fetch_samples', lambda port: [sample])
+    app = AppTest.from_file(APP_PATH).run(timeout=20)
+    assert not app.exception
+    assert label in ' '.join(item.value for item in app.markdown)
+    assert f'Verde <{green*100:g}% · Amarillo {green*100:g}–{red*100:g}% · Rojo >{red*100:g}%' in ' '.join(item.value for item in app.caption)
+
+
+def test_legacy_legend_does_not_guess_yaml_thresholds(monkeypatch):
+    from dataclasses import replace
+    sample = replace(simulation_samples(load_config(), 0, time())[0], green_below=-1, red_above=-1)
+    monkeypatch.setattr(client, 'fetch_samples', lambda port: [sample])
+    app = AppTest.from_file(APP_PATH).run(timeout=20)
+    assert not app.exception
+    assert 'Umbrales no informados' in ' '.join(item.value for item in app.caption)
