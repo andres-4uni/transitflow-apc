@@ -11,6 +11,13 @@ class CountingDebug:
         self._last: dict[int, tuple] = {}
 
     def __call__(self, row: dict) -> None:
+        retired = row.get("retired_track_ids", ())
+        for retired_id in retired:
+            self._last.pop(retired_id, None)
+        if row["position"] == "retired":
+            print(f"COUNT frame={row['frame']} retirados={list(retired)} motivo={row['reason']}",
+                  file=self.output)
+            return
         key = row["track_id"]
         signature = (row["position"], row["current"], row["reason"], row["event"])
         if (signature != self._last.get(key) or row["age"] % 30 == 0
@@ -27,4 +34,4 @@ class CountingDebug:
                   file=self.output)
         self._last[key] = signature
         if row["position"] == "expired":
-            del self._last[key]
+            self._last.pop(key, None)

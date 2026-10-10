@@ -61,3 +61,29 @@ def test_fake_cli_uses_no_detector_capture_or_image_files(tmp_path, monkeypatch,
     assert (summary["entries"], summary["exits"], summary["occupancy"]) == (2, 2, 0)
     assert summary["frames"] == count
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize('orientation', ['horizontal', 'vertical'])
+@pytest.mark.parametrize('direction', ['positive', 'negative'])
+@pytest.mark.parametrize('zones', [(.1, .9), (.0001, .9999), (.01, .02), (.98, .99)])
+@pytest.mark.parametrize('min_zone_frames', [2, 8])
+def test_fake_dual_zone_holds_extremes_and_counts_each_cycle(orientation, direction, zones, min_zone_frames):
+    from apc.counting.factory import create_counter
+    config = load_config()
+    config = replace(config, counting=replace(config.counting, mode='dual_zone', max_missing_seconds=.9,
+                     orientation=orientation, enter_direction=direction, zone_a_max=zones[0],
+                     zone_b_min=zones[1], min_zone_frames=min_zone_frames),
+                     simulation=replace(config.simulation, fake_cycle_seconds=1, fake_fps=30))
+    source = FakeTracksSource(config, realtime=False)
+    counter = create_counter(config.counting)
+    occupancy = OccupancyCounter(config.occupancy)
+    events = []
+    peak = 0
+    for index in range(source.cycle_frames * 4):
+        current = counter.update(source.tracks(index), timestamp=index / 30)
+        occupancy.apply(current)
+        events.extend(current)
+        peak = max(peak, occupancy.occupancy)
+    assert [e.direction for e in events] == ['entry', 'exit'] * 4
+    assert [e.track_id for e in events] == list(range(1, 9))
+    assert (occupancy.entries, occupancy.exits, occupancy.occupancy, peak) == (4, 4, 0, 1)

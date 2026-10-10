@@ -47,6 +47,9 @@ class EvaluationDiagnostics:
                            (min(t.bbox[:2]) <= 0.01 or max(t.bbox[2:]) >= 0.99)}
 
     def __call__(self, row):
+        if row["position"] == "retired":
+            # Es ciclo de vida diagnóstico, no otra observación/expiración del pasajero.
+            return
         key = row.get("logical_id", row["track_id"])
         summary = self.ids.setdefault(key, {"track_id": row["track_id"], "first_frame": self.frame,
             "last_frame": self.frame, "observations": 0, "max_gap_frames": 0,

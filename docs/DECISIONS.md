@@ -221,7 +221,8 @@
   presencia, no un nuevo umbral elegido para conseguir totales. IN A→B (abajo).
 - Se arma un lado observado; neutral conserva historia y no emite eventos. Solo
   el lado opuesto confirmado rearma. A→neutral→A y observaciones repetidas no
-  cuentan. Dos presencias consecutivas en zona, mínimo tres observaciones totales.
+  cuentan. Dos observaciones de zona (pueden conservarse durante una ausencia tolerada),
+  mínimo tres observaciones totales.
   En el perfil, un punto profundo (margen .10: A<.30/B>.75) confirma por sí solo
   si se cumple la edad; recupera salida ID98 f1968, única presencia final en A
   tras una trayectoria larga en B. No relajar a una presencia junto al límite:
@@ -285,3 +286,19 @@
   compatibles; consumidores antiguos con esquema estricto deben actualizarse
   para aceptar estos dos campos adicionales. Telemetría solo numérica, sin IDs
   de personas; session_id pertenece exclusivamente al endpoint de calibración.
+
+## Correcciones de auditoría — simulación y debug, 2026-10-10
+
+- FakeTracksSource tripwire conserva sus trayectorias anteriores. En dual_zone
+  los extremos se derivan de A/2 y (1+B)/2; hay esperas medidas en observaciones
+  para armar ambos lados y cumplir edad/presencias. Cada ciclo usa dos IDs nuevos,
+  pasa por el contador real y produce IN antes de OUT. Si el ciclo solicitado es
+  demasiado corto, el simulador lo extiende a `4*max(min_zone_frames,
+  min_track_frames)+2` frames; no modifica defaults ni fuerza eventos.
+- El contador emite `retired_track_ids` en diagnóstico al unir, caducar aliases,
+  expirar pasajeros o resetear. CountingDebug retira esas claves; el contador
+  sigue sin conocer el debug. EvaluationDiagnostics ignora avisos de retiro como
+  observaciones, manteniendo sus estadísticas de eventos/expiraciones.
+- min_zone_frames cuenta observaciones en la zona candidata. Una ausencia dentro
+  del TTL conserva hits; zona neutra/retorno al lado estable sí los borra. No se
+  promete consecutividad de frames del video ni se cambia tolerancia/algoritmo.

@@ -54,7 +54,7 @@ class CountingConfig:
     max_missing_seconds: float = 0.0  # 0 mantiene la caducidad histórica por frames.
     zone_a_max: float = 0.40
     zone_b_min: float = 0.65
-    min_zone_frames: int = 2
+    min_zone_frames: int = 2  # Observaciones de zona; una ausencia tolerada no las borra.
     zone_single_observation_margin: float = 0.0  # 0 exige siempre min_zone_frames.
     stitching: bool = False
     stitch_max_distance: float = 0.35

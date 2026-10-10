@@ -656,3 +656,19 @@
   tests/test_dashboard.py tests/test_calibration.py tests/test_telemetry.py
   tests/test_simulation.py`. Sin videos privados ni persistencia de imágenes.
 - Siguiente: simulación dual_zone y retiro del estado diagnóstico de aliases.
+
+### Etapa 2 — simulación y ciclo de vida diagnóstico, 2026-10-10
+
+- Tracks artificiales dual_zone derivados de A/B, con presencias en extremos y
+  edad suficientes; tripwire conservado. Probadas ambas orientaciones/sentidos,
+  cuatro geometrías (incluidos .10/.90 y .0001/.9999), mínimos 2/8 y cuatro ciclos.
+- CountingDebug libera IDs retirados por stitching, aliases con TTL vencido,
+  expiración y reset. Secuencia de eventos idéntica con/sin diagnóstico en dos
+  uniones sucesivas. Regresión documenta presencias conservadas durante ausencias.
+- Primer resultado: 1 failed / 140 passed (2.80 s). La trayectoria de la segunda
+  unión no cumplía movimiento neto compatible en la ventana de seis puntos;
+  corregida solo la prueba. Repetición: **141 passed in 2.76s**.
+- Comando: `.venv/bin/python -m pytest -q tests/test_dual_zone.py
+  tests/test_counting_debug.py tests/test_fake_tracks.py
+  tests/test_evaluation_diagnostics.py tests/test_config.py` (sockets locales).
+- Siguiente: cola live sin espera por frames y robustez de cierre/control.

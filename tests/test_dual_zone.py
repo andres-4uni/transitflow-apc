@@ -187,3 +187,9 @@ def test_invalid_observations_do_not_advance_state():
         counter.update([], timestamp=.05)
     with pytest.raises(ValueError):
         counter.update([], timestamp=float('nan'))
+
+
+def test_zone_observations_survive_tolerated_absence():
+    counter = DualZoneCounter(config(stitching=False))
+    events = feed(counter, [[track(7, .2)], [], [track(7, .3)], [track(7, .7)], [], [track(7, .8)]])
+    assert [e.direction for e in events] == ['entry']

@@ -93,3 +93,45 @@ def test_debug_releases_expired_ids():
     counter.update([])
     counter.update([])
     assert debug._last == {}
+
+
+def test_dual_zone_successive_stitches_retire_debug_ids_without_changing_events():
+    from apc.counting.dual_zone import DualZoneCounter
+    config = CountingConfig(mode='dual_zone', max_missing_seconds=.9, stitching=True)
+    output = StringIO()
+    debug = CountingDebug(output)
+    observed = DualZoneCounter(config, diagnostic=debug)
+    plain = DualZoneCounter(config)
+    # Dos uniones, una en cada sentido; las pausas permanecen dentro del TTL.
+    samples = [(0, 7, .2), (.1, 7, .3), (.2, 7, .5), (.5, 12, .7), (.6, 12, .8),
+               (.7, 12, .85), (.8, 12, .8), (.9, 12, .75), (1.0, 12, .65),
+               (1.1, 12, .55), (1.4, 19, .35), (1.5, 19, .25)]
+    events = []
+    for seconds, key, y in samples:
+        tracks = [Track(key, (.5, y))]
+        actual = observed.update(tracks, timestamp=seconds)
+        assert actual == plain.update(tracks, timestamp=seconds)
+        events.extend(actual)
+    assert [e.direction for e in events] == ['entry', 'exit']
+    assert debug._last.keys() == {19}
+    # Caducan aliases mientras la identidad lógica continúa activa.
+    assert observed.update([Track(19, (.5, .25))], timestamp=2.2) == plain.update([Track(19, (.5, .25))], timestamp=2.2)
+    assert observed._states[1].ids == {19} and debug._last.keys() == {19}
+    assert observed.update([], timestamp=3.2) == plain.update([], timestamp=3.2) == []
+    assert observed._states == observed._aliases == debug._last == {}
+    assert 'evento=IN' in output.getvalue() and 'evento=OUT' in output.getvalue()
+    assert 'caducó alias físico' in output.getvalue()
+
+
+def test_retirement_of_reappearing_alias_and_reset_clear_debug():
+    from apc.counting.dual_zone import DualZoneCounter
+    counter = DualZoneCounter(CountingConfig(mode='dual_zone', max_missing_seconds=.9, stitching=True),
+                              diagnostic=(debug := CountingDebug(StringIO())))
+    for seconds, key, y in [(0, 7, .2), (.1, 7, .3), (.2, 7, .5), (.5, 12, .7), (.6, 12, .8),
+                             (.7, 7, .8), (.8, 12, .8)]:
+        counter.update([Track(key, (.5, y))], timestamp=seconds)
+    assert 7 in debug._last
+    counter.update([Track(12, (.5, .8))], timestamp=1.7)
+    assert 7 not in debug._last and counter._states
+    counter.reset()
+    assert counter._states == debug._last == {}

@@ -38,7 +38,9 @@ class DualZoneCounter:
     """Confirma dos presencias exteriores; no interpola observaciones perdidas.
 
     timestamp es tiempo de captura/contenido, independiente del cómputo. Las
-    identidades físicas se conservan como alias hasta que caduca el pasajero.
+    identidades físicas se conservan como alias hasta que vence su propio TTL.
+    min_zone_frames cuenta observaciones de zona: una ausencia tolerada conserva
+    las presencias pendientes; no exige frames consecutivos del video.
     """
 
     def __init__(self, config: CountingConfig, *, diagnostic=None):
@@ -50,6 +52,9 @@ class DualZoneCounter:
         self.reset()
 
     def reset(self):
+        for state in getattr(self, "_states", {}).values():
+            self._report(state, state.stable, "retired", "reinicio del contador",
+                         retired_track_ids=sorted(state.ids | {state.track_id}))
         self._states = {}
         self._aliases = {}
         self._alias_seen = {}
@@ -137,7 +142,8 @@ class DualZoneCounter:
             if timestamp - state.last_seen > self.config.max_missing_seconds + 1e-9:
                 self._report(state, state.stable, "expired", "caducó TTL",
                              gap_seconds=timestamp-state.last_seen,
-                             missing=self._frame_index-state.last_frame)
+                             missing=self._frame_index-state.last_frame,
+                             retired_track_ids=sorted(state.ids | {state.track_id}))
                 del self._states[key]
                 for alias in state.ids:
                     self._aliases.pop(alias, None)
@@ -146,7 +152,10 @@ class DualZoneCounter:
         for alias, last_seen in list(self._alias_seen.items()):
             if timestamp-last_seen > self.config.max_missing_seconds + 1e-9:
                 key = self._aliases.pop(alias)
-                self._states[key].ids.discard(alias)
+                state = self._states[key]
+                self._report(state, state.stable, "retired", "caducó alias físico",
+                             retired_track_ids=[alias])
+                state.ids.discard(alias)
                 del self._alias_seen[alias]
 
         events, observed = [], {}
@@ -227,7 +236,8 @@ class DualZoneCounter:
                 del self._states[new_key]
                 del observed[new_key]
                 observed[old_key] = dict(state=old, previous=previous, event=event,
-                                        gap_seconds=detail["gap_seconds"], missing=0, stitch=detail)
+                                        gap_seconds=detail["gap_seconds"], missing=0, stitch=detail,
+                                        retired_track_ids=[detail["from_track_id"]])
 
         for observation in observed.values():
             state = observation.pop("state")
