@@ -672,3 +672,17 @@
   tests/test_counting_debug.py tests/test_fake_tracks.py
   tests/test_evaluation_diagnostics.py tests/test_config.py` (sockets locales).
 - Siguiente: cola live sin espera por frames y robustez de cierre/control.
+
+### Etapa 3 — backpressure y cierre, 2026-10-10
+
+- Frames live usan inserción no bloqueante y sustitución atómica del antiguo.
+  Archivo conserva orden/todos los frames; error y fin no se descartan, incluso
+  bajo cola llena. Cierre despierta productores y libera captura.
+- Regresión coordinada por eventos: ráfaga de 100 frames antes de consumir entrega
+  los dos recientes, consumidor lento de archivo recibe 0..99, errores/fin y
+  cierre con cola llena. Una Queue instrumentada prohíbe put bloqueante de frames
+  live; no se imponen cotas frágiles de FPS ni latencia.
+- `.venv/bin/python -m pytest -q tests/test_source_backpressure.py
+  tests/test_live_sources.py tests/test_file_source.py tests/test_file_playback.py`
+  → **35 passed in 1.77s**, HTTP loopback sintético autorizado. Sin fallos.
+- Siguiente: perfil pendiente, flujo 720p/30 fps sintético, CLI y documentación.

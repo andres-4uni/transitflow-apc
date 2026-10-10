@@ -71,17 +71,27 @@ class ThreadedSource(VideoSource):
         self._thread.start()
 
     def _put(self, value) -> None:
+        recent_frame = self._live and isinstance(value, FramePacket)
         while not self._stop.is_set():
             try:
-                self._queue.put(value, timeout=0.1)
+                if recent_frame:
+                    self._queue.put_nowait(value)
+                else:
+                    # Archivo y señales de control mantienen orden y backpressure.
+                    self._queue.put(value, timeout=0.1)
                 return
             except Full:
-                if self._live and isinstance(value, FramePacket):
-                    # Descartar el frame más antiguo para limitar la latencia en vivo.
-                    try:
-                        self._queue.get_nowait()
-                    except Empty:
-                        pass
+                if recent_frame:
+                    # Inspección/retiro atómicos: el consumidor puede vaciar la
+                    # cola entre put_nowait y este lock. Nunca retirar error/fin.
+                    with self._queue.not_full:
+                        if self._queue.queue:
+                            if isinstance(self._queue.queue[0], FramePacket):
+                                self._queue._get()
+                                self._queue.unfinished_tasks -= 1
+                                self._queue.not_full.notify()
+                            else:
+                                self._queue.not_full.wait(timeout=0.1)
                 continue
 
     def _capture(self, capture) -> None:

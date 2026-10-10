@@ -302,3 +302,14 @@
 - min_zone_frames cuenta observaciones en la zona candidata. Una ausencia dentro
   del TTL conserva hits; zona neutra/retorno al lado estable sí los borra. No se
   promete consecutividad de frames del video ni se cambia tolerancia/algoritmo.
+
+## Correcciones de auditoría — backpressure, 2026-10-10
+
+- ThreadedSource usa put_nowait para frames live. Una cola llena retira el frame
+  antiguo inmediatamente, sin esperar 100 ms. Inspeccionar/retirar bajo el lock
+  de Queue evita que una lectura concurrente haga descartar error/fin. Solo se
+  espera si la cabeza es una señal de control; archivos y controles conservan
+  put con timeout y revisión de stop para cerrar sin productor bloqueado.
+- No se ajustan buffers del dispositivo/driver/FFmpeg: pueden introducir latencia
+  adicional antes de esta cola. Una webcam cuyo read queda bloqueado sigue
+  requiriendo que su backend responda; close informa si supera el timeout.

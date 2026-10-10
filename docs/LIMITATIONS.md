@@ -240,3 +240,12 @@ adicional sea correcto. Se requieren anotaciones completas para comparar método
 Siguiente trabajo: anotar los 25 cruces, revisar encuadre/distancia para observar
 trayectorias completas y validar cámara final. El montaje sigue siendo un prototipo
 diagnóstico mejorado; no se declara una demo de conteo suficientemente fiable.
+
+## Latencia de fuentes live — corrección 2026-10-10
+
+La cola Python reemplaza inmediatamente frames antiguos cuando está llena; eso
+no elimina los buffers del dispositivo, driver, red o FFmpeg. Puede existir
+latencia antes de timestamp/read y no se ha medido con una cámara física.
+El cierre deja sin hilos los backends que responden a read/timeouts; no puede
+interrumpir de manera segura un driver que bloquee indefinidamente. Ese caso
+continúa informando error de cierre, como antes de la corrección.
