@@ -1,10 +1,11 @@
 # Progreso
 
-**Resumen 2026-10-10:** bugs de sincronización, leyenda, simulación, debug y
-backpressure corregidos. Regresión completa: **339 passed in 15.95s**.
-La compuerta histórica sigue en 8 IN / 12 OUT frente a 12/13, sin nuevos ajustes
-ni evaluación de videos privados. Herramientas preparadas para el próximo video
-(~720p/30 fps/30°), todavía inexistente; precisión/cámara/rendimiento pendientes.
+**Resumen 2026-10-10:** primera evaluación de demo3: **6 IN / 4 OUT frente a 6/6**,
+error agregado 16,67%. El archivo entrega 848×476 / 29,964 FPS, no 1280×720.
+Dos OUT se omiten por cajas ensanchadas después de ByteTrack, rechazo de área y
+caducidad del tripwire. Sin cambios de producción, umbrales ni algoritmo.
+142 pruebas pertinentes aprobadas. Calibración física y cámara real pendientes.
+La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 
 ## Hito 1 — completado
 - Implementados esqueleto, configuración validada, captura de archivo en hilo,
@@ -722,3 +723,137 @@ ni evaluación de videos privados. Herramientas preparadas para el próximo vide
   grabar nuevo video, recalibrar puerta y etiquetar cruces; evaluar a destinos
   nuevos y luego validar transporte/cámara física. **Precisión no resuelta,
   cámara no comprobada y rendimiento del próximo video no medido.**
+
+## Primera evaluación experimental de demo3 — 2026-10-10
+
+- Leídos AGENTS, README, PROGRESS, DECISIONS, LIMITATIONS y BENCHMARK antes de
+  evaluar. HEAD inicial c312bab; cambios preparados en AGENTS.md, default.yaml
+  y `docs/counting-evaluation.json` conservados. Sin commits, push ni PR.
+- Original privado de solo lectura: HEVC, 32.924.215 bytes, 56,268333 s,
+  1686 frames declarados, verificados por FFprobe y decodificados por OpenCV.
+  Codificado 476×848, matriz de rotación −90°; OpenCV/FFmpeg aplica orientación
+  automática (metadato 90°) y entrega 848×476 horizontal a 29,963567 FPS.
+  No hay discrepancia de frames ni advertencia de validación. Altura, ángulo,
+  dispositivo y resolución de grabación inicial no se certifican por estos datos.
+- Baseline: next-video.yaml con --video data/demo3.mov, tripwire, línea
+  horizontal y=.50, banda [.46,.54], IN abajo, ROI completo, YOLOv8n CPU,
+  320/.35/stride1, hilos auto. Una pasada sin loop/realtime ni imágenes de salida:
+  **6/4**, diez eventos, errores absolutos 0/2, suma 2/12 = **16,67%**;
+  error OUT 2/6 = 33,33%. Ocupación final incorrecta 2; **17,2886 s / 97,5207 FPS**,
+  arranque de inferencia incluido, carga de pesos fuera del reloj. No benchmark.
+- Revisión numérica observacional con callbacks, sin cambiar inferencia ni
+  tracking: mismos diez eventos por frame/ID/dirección. 912 cajas YOLO en
+  856 frames; 865 observaciones válidas en 834 frames; 19 IDs, diez rechazos
+  de área, cero fallbacks de timestamp. IDs distintos no equivalen a personas.
+- Causa inmediata reproducida: ID16 descartado f835–838 (27,900–28,000 s),
+  ID29 f1348–1352 (45,001–45,134 s). YOLO conserva cajas de confianza
+  .895–.914 / .884–.900 y áreas .359–.376 / .313–.321. Después de ByteTrack,
+  sus áreas son .861–.911 / .855–.939, superan .85 y el adaptador las descarta.
+  Ambos IDs siguen asociados; el contador caduca f837/f1350 por más de dos
+  ausencias. Reaparecen dentro de banda, sin el lado inferior anterior, y alcanzan
+  arriba f846/f1360. No es falta de confianza ni edad insuficiente en esos casos.
+- Control causal exclusivamente numérico: mismo contador y configuración,
+  reinsertando las diez cajas rastreadas descartadas por área, produce 6/6 y
+  conserva los diez eventos anteriores. Añade OUT16 f846/28,266722 s y OUT29
+  f1360/45,401044 s. **No es una calibración aplicada ni un resultado operativo**;
+  no certifica que sean todos los cruces reales ni ausencia de FP compensatorios.
+- No se localizaron visualmente los doce cruces ni el umbral físico. Se abrió
+  la vista OpenCV existente solo local, sin capturas; se solicitó la coordenada
+  Y de la puerta. Sin esa referencia, demo3.yaml conserva y=.50 y banda=.04,
+  explicita IN down y mantiene detector/requisitos del baseline. No hay segunda
+  evaluación de una geometría nueva justificada. 897/912 cajas YOLO tocan el
+  margen 1% de algún borde; el encuadre no asegura cuerpos completos. El desfase
+  de relación de aspecto después de tracking es medido; su causa física exacta
+  y la contribución de la inclinación siguen siendo hipótesis por contrastar.
+- Benchmark aislado, resolución efectiva original 848×476, CPU/320/stride1,
+  siete hilos efectivos, warmup 30 y tres pasadas completas por modo:
+  **102,2573 FPS** medios sin overlay (mínimo 101,0768), **102,8231** con
+  overlay/JPEG en RAM (mínimo 101,7729). Ventanas de 1656 inferencias, tiempos
+  15,899–16,384 / 15,849–16,272 s; suma de las seis ventanas **96,9141 s**.
+  JPEG calidad80/límite10, ~9,37 JPEG/s, coste por codificación 1,730 ms medio.
+  No mide HTTP/navegador ni latencia extremo a extremo; diferencia pequeña entre
+  modos compatible con carga variable. Mac14,2/Apple M2/8 CPU/16 GiB/macOS26.6.2,
+  Python3.11.15/OpenCV4.14.0/Ultralytics8.3.253/torch2.14.1. Sin descarga/instalación.
+- Comprobado perfil y sentidos con load_config y contador real. Pruebas:
+  `.venv/bin/python -m pytest -q tests/test_config.py tests/test_tripwire.py
+  tests/test_detector.py tests/test_evaluation_diagnostics.py tests/test_benchmark.py
+  tests/test_next_validation.py tests/test_file_source.py tests/test_frame_validation.py`
+  → **142 passed in 1.23s**. No cambios de tests ni producción.
+- Perfil optativo del dashboard en la carpeta local ignorada: mismo detector/
+  geometría, rutas absolutas al original/pesos, loop/realtime y MJPEG locales.
+  HTTP real listo, JPEG 848×476 decodificado solo en RAM, AppTest contra el
+  productor real sin excepciones ni errores. Advertencias existentes de contexto
+  AppTest y valor de widget duplicado; no se corrigen durante este diagnóstico.
+  Smoke de 32 frames, no benchmark ni evaluación completa; procesos cerrados.
+- Evidencia local ignorada, sin sobrescribir históricos:
+  `data/evaluations/demo3-20261010-172037/` contiene preflight, baseline,
+  diagnostic-pass, frame-diagnostics, area-audit, diagnosis, benchmark,
+  dashboard-check, summary y perfil de vista optativa. Solo JSON/YAML, sin medios.
+- Siguiente: confirmar puerta en vista local y anotar los doce cruces con tiempos;
+  grabar con más margen de cuerpo antes/después y comprobar resolución del archivo
+  entregado. Proponer, sin implementar, una revisión del filtro sobre la caja YOLO
+  asociada frente a la estimación de ByteTrack. Validar en clips independientes
+  antes de cambiar filtros, memoria o tracker. Cámara real apta para ensayo técnico,
+  todavía sin validación de precisión, transporte ni latencia.
+
+## Verificación de nueva calibración demo3 — 2026-10-10
+
+- Nueva instrucción del usuario: contrastar position=.60 antes de implementar
+  correcciones. AGENTS y documentación relevante revisados; HEAD c312bab y todos
+  los cambios previos conservados. Único parámetro guardado: counting.position
+  .50→.60 en configs/demo3.yaml; comentario actualizado. No se toca otro perfil,
+  fuente, filtro, umbral, tracker, código de producción ni test. Sin commits/push.
+- Productor PID47368 y Streamlit PID47591 usan el YAML auxiliar histórico
+  `data/evaluations/demo3-20261010-172037/configs/demo3-dashboard.yaml`.
+  Su archivo conserva .50, pero GET /calibration confirma **.6106 en RAM**, revisión
+  3 aplicada=3, horizontal/down y banda=.04. No equivale a .60 exacto. La muestra
+  6/5 leída de /telemetry es un instante de una vuelta, no un total final. Se
+  consultó sin cambiar sesión, controles, YAML auxiliar ni procesos del usuario.
+- CLI evaluate_counts con demo3.yaml .60, referencia inmutable 6/6, diagnóstico,
+  stride1, sin loop/realtime: **1686/1686 frames, 6 IN / 5 OUT**, once eventos,
+  error absoluto 0/1, agregado **8,33%**. Tiempo 23,8777 s, 70,6099 FPS globales.
+  El dashboard previo sigue activo: no es un benchmark aislado ni comparativo.
+- Pasada de contraste de la misma CLI, inyectando exclusivamente la posición
+  exacta leída de RAM (.6106) en la configuración del proceso, sin persistirla:
+  **1686 frames, 6/6, doce eventos**, 23,8375 s / 70,7290 FPS. No se seleccionó
+  un parámetro por barrido ni se cambió configs/demo3.yaml a ese valor.
+- Las dos pasadas coinciden por frame/ID/dirección con replay de tracks históricos
+  bajo sus posiciones respectivas. Mismos 912 detecciones, 865 observaciones,
+  19 IDs y diez rechazos de área; también iguales rangos de centroide, huecos,
+  frames inicial/final y número de observaciones por ID. Los diez pares ID/sentido
+  del baseline .50 se conservan en .60 y .6106. IN se confirma algo después y
+  OUT antes al desplazar la línea; no aparecen sustituciones por otros IDs.
+- ID16: .60 y .6106 cuentan OUT f834/**27,866700 s**, último frame válido antes
+  del rechazo f835–838. En .60 y=.548511 < .56; margen 5,469 píxeles y una sola
+  observación exterior antes del hueco. Caduca de todos modos f837, con evento
+  ya emitido. La calibración evita esta omisión, no arregla la caja/filtro.
+- ID29: .60 **todavía omite OUT**. Último punto válido f1347 y=.564967 está dentro
+  de [.56,.64], a 2,364 píxeles del límite superior. Rechazo f1348–1352 y caducidad
+  f1350 borran el lado de inicio. Con .6106, límite superior .5706, ese mismo punto
+  cuenta OUT f1347/**44,967700 s**, 2,681 píxeles fuera de banda y un frame antes
+  del rechazo. El 6/6 observado es consistente con el valor activo más preciso.
+- Estabilidad numérica: cada recuperación tiene solo una observación exterior
+  antes de perderse por área. Sesgo de centroide ±1 píxel en replay conserva los
+  totales respectivos; +3 píxeles vuelve a omitir ID29 con .6106, −3 lo recupera
+  con .60. Control de sensibilidad de medidas, no nueva evaluación/detección ni
+  búsqueda de posición. No se certifica robustez frente a otra grabación.
+- Geometría .60: línea y=285,60 píxeles, banda [266,56,304,64] en altura476;
+  quedan 171,36 píxeles desde el límite inferior al borde. ROI completo. No hay
+  proximidad extrema de la banda al borde; las cajas sí siguen recortadas y
+  ensanchadas. Coincidencia con umbral físico pendiente de referencia geométrica.
+- No hay timestamps manuales ni auditoría visual completa de los doce cruces.
+  El emparejamiento anterior es numérico, no prueba ausencia de FP compensatorios,
+  cambios físicos de identidad ni precisión por evento. No implementar corrección
+  del filtro por ahora: queda evidencia de fragilidad por contrastar en otros clips.
+- Pruebas pertinentes: config, tripwire, evaluation_diagnostics, next_validation
+  y calibration. Primer intento: 126 passed/7 failed exclusivamente por sockets
+  loopback bloqueados en sandbox. Repetidas con sockets de prueba autorizados:
+  **133 passed in 4.80s**, sin cambiar código/tests ni usar imágenes persistentes.
+- Evidencia nueva ignorada: `data/evaluations/demo3-position060-20261010-202249/`:
+  preflight, config-change, evaluation, evaluation-dashboard-ram y su método,
+  stored-tracks-replay, comparison, centroid-sensitivity, validation y summary.
+  Históricos y video sin modificar; las imágenes nunca se guardan ni se envían.
+- Conclusión: conservar .60 como perfil experimental solicitado, **sin declarar
+  resuelto 6/6**. El valor activo .6106 da 6/6 en una pasada, pero el filtro sigue
+  descartando y la confirmación de ID29 es estrecha. Siguiente etapa pendiente
+  de autorización: anotación temporal y geometría antes de cualquier corrección.

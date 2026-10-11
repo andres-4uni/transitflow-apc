@@ -332,3 +332,69 @@
 - Mantener privacidad, API/MJPEG loopback, stack y dependencias. Ningún resultado
   histórico se sobrescribe, ningún video privado se procesa y ningún peso se
   descarga. Validación real de precisión/cámara/rendimiento queda para después.
+
+## Evaluación experimental demo3 — 2026-10-10
+
+- La instrucción actual excluye commits y cambios de producción, contador,
+  detector, tracker, filtros o memoria. Se crean solo perfil propio, evidencia
+  numérica local ignorada y este registro; defaults e históricos se conservan.
+- Usar next-video.yaml como baseline independiente previsto para el nuevo montaje,
+  con ruta CLI explícita. No copiar el dual_zone/640/.10/ROI/TTL/stitching de demo2:
+  son otra geometría y alterarían varias variables simultáneamente.
+- En el código, horizontal selecciona Y y positive equivale a down. Demo3 explicita
+  horizontal/down para movimiento vertical de imagen; OUT es up. Una configuración
+  vertical/down sería inválida y representaría el eje incorrecto.
+- Medir el archivo entregado, no asumir 720p: OpenCV aplica la matriz MOV y entrega
+  848×476. source.width/height solo documentan ese tamaño; no redimensionan archivo.
+  FFprobe/OpenCV coinciden en 1686; no se necesita --verified-frames.
+- No desplazar línea, banda o ROI para recuperar totales. La puerta carece de
+  referencia geométrica confirmada en esta evaluación; solicitar Y mediante la
+  vista local existente y conservar y=.50/±.04 hasta justificar otra geometría.
+  La creación de demo3.yaml no constituye calibración validada.
+- Distinguir salida YOLO, caja después de ByteTrack y track admitido por área.
+  Diez rechazos .85 ocurren sobre estimaciones rastreadas, no cajas YOLO originales.
+  Nueve producen dos huecos que caducan el contador; ByteTrack mantiene los IDs.
+  Las confianzas altas descartan bajar conf como solución sustentada para esos casos.
+- Replay antes del filtro es control de entrada numérico con algoritmo y parámetros
+  idénticos, no nuevo perfil ni resultado calibrado. Recupera OUT16/OUT29 y deja
+  iguales los otros diez eventos. Su 6/6 no demuestra precisión individual; faltan
+  timestamps manuales y correspondencia visual completa. No aplicar el control
+  en producción ni elevar .85 durante esta tarea.
+- Propuesta futura: evaluar el área de la detección YOLO asociada frente al área
+  suavizada del tracker, con casos sintéticos de cambio rápido de aspecto y bordes,
+  seguida de auditoría de eventos reales. La interacción actual queda reproducida;
+  no se declara un bug independiente del algoritmo puro ni una corrección validada.
+- Privacidad: no enviar imágenes del video a herramientas externas ni persistir
+  capturas. Vista OpenCV, overlay/JPEG y comprobación HTTP quedan locales y en RAM.
+  El perfil normal mantiene stream/debug apagados; YAML auxiliar ignorado habilita
+  explícitamente la vista en loopback. Todos los procesos propios se cierran.
+- Benchmark solo demo3, 320/stride1/auto, tres repeticiones sin/con overlay/JPEG,
+  sin otra inferencia ni tests concurrentes. No confundir FPS nominales del archivo,
+  capacidad de procesamiento, tasa JPEG y latencia. Los tiempos de sus ventanas
+  excluyen warmup; la evaluación completa conserva el arranque de inferencia.
+
+## Nueva evidencia de calibración demo3 — 2026-10-10
+
+- La instrucción nueva autoriza guardar .60 únicamente en demo3.yaml. Conservar
+  todos los demás parámetros y el YAML auxiliar histórico sin cambios; no tocar
+  la sesión abierta del usuario. No implementar todavía la propuesta sobre área.
+- Comprobar configuración efectiva con API numérica, no asumir que un cambio de
+  controles se guardó. Productor/dashboard apuntan al YAML auxiliar con .50 en
+  disco; RAM declara .6106, revisión 3 aplicada. Registrar la diferencia respecto
+  de la posición .60 descrita por el usuario sin interpretar un snapshot parcial
+  de conteos en loop como resultado final.
+- Evaluar .60 exacto por CLI: 6/5, no 6/6. Contrastar también .6106 leído del
+  productor en una pasada con override de dataclass exclusivamente en RAM y la
+  misma CLI: 6/6. El perfil guardado sigue .60. No hay barrido ni optimización.
+- Emparejar eventos por trayectoria numérica/ID/sentido con tracks históricos;
+  ambas pasadas coinciden con esos replays. Retienen los diez pares anteriores;
+  .60 añade OUT16 y .6106 también OUT29. Esto restringe la hipótesis de que otro
+  ID compensó los omitidos, pero no certifica identidad física ni precision/recall.
+- La línea más baja confirma OUT antes del hueco de área; no mejora detección ni
+  asociación. Diez rechazos continúan. ID29 se confirma con solo 2,681 píxeles de
+  margen y una observación antes del rechazo con .6106. Sensibilidad del centroide
+  ±1/±3 píxeles sobre datos congelados documenta fragilidad sin cambiar perfiles.
+- Mantener .60 como configuración experimental pedida, no como calibración
+  plenamente validada. No cambiar automáticamente a .6106 para conseguir totales.
+  Revisar referencia física y anotar cruces antes de decidir si el filtro requiere
+  corrección de código. No inferir que deja de ser un problema por obtener 6/6.

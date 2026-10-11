@@ -1,0 +1,47 @@
+# Evaluación local de demo3; perfil independiente de los defaults e históricos.
+# OpenCV aplica la rotación MOV: imagen efectiva 848x476, no 1280x720.
+# Posición 0.60 indicada por revisión local; validación experimental de eventos.
+source:
+  type: file
+  path: data/demo3.mov
+  width: 848
+  height: 476
+  queue_size: 2
+  realtime: false
+  loop: false
+detection:
+  model: models/yolov8n.pt
+  tracker: bytetrack.yaml
+  imgsz: 320
+  conf: 0.35
+  vid_stride: 1
+  torch_threads: 0
+  min_area_ratio: 0.005
+  max_area_ratio: 0.85
+  roi_left: 0.0
+  roi_top: 0.0
+  roi_right: 1.0
+  roi_bottom: 1.0
+  track_buffer_seconds: 0.0
+counting:
+  mode: tripwire
+  # Línea horizontal; el movimiento de los centroides es vertical (eje Y).
+  orientation: horizontal
+  position: 0.60
+  band_half_width: 0.04
+  enter_direction: down
+  min_track_frames: 3
+  max_missing_frames: 2
+  max_missing_seconds: 0.0
+  stitching: false
+occupancy:
+  capacity: 100
+  initial: 0
+  green_below: 0.40
+  red_above: 0.75
+visualization:
+  stream: false
+  show_trails: false
+debug:
+  show_video: false
+  counting: false
