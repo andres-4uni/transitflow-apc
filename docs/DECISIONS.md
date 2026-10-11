@@ -398,3 +398,12 @@
   plenamente validada. No cambiar automáticamente a .6106 para conseguir totales.
   Revisar referencia física y anotar cruces antes de decidir si el filtro requiere
   corrección de código. No inferir que deja de ser un problema por obtener 6/6.
+## Organización de resultados JSON — 2026-10-10
+
+- Separar las cuatro mediciones de rendimiento en `docs/benchmarks/` y las ocho
+  evaluaciones y validaciones en `docs/evaluations/`. Clasificar por contenido:
+  `benchmark-evaluation.json` evalúa conteos y `benchmark-validation.json` valida
+  las pasadas, por lo que ambos pertenecen a evaluaciones.
+- Conservar cada JSON byte por byte. Sus rutas internas anteriores son evidencia
+  histórica y permanecen intactas; los enlaces y comandos Markdown usan las rutas
+  nuevas. No hay referencias anteriores en scripts, configuraciones ni tests.

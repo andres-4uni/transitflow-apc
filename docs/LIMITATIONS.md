@@ -134,7 +134,7 @@ counting en formato compacto o con alias se rechaza al guardar para preservar
 comentarios y otras secciones. El prototipo no tiene reidentificación, seguimiento
 del umbral ni capacidad certificada para el pitch o explotación comercial.
 
-Evidencia numérica: [calibration-evaluation.json](calibration-evaluation.json).
+Evidencia numérica: [calibration-evaluation.json](evaluations/calibration-evaluation.json).
 
 ## Montaje fijo demo2 — etapa tripwire anterior, 2026-10-06
 

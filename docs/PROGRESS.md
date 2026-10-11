@@ -208,7 +208,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   estadísticas, rechazo de realtime y callback de tracking sin duplicación.
 - Piloto real ejecutado (300 frames, warmup 30, tres repeticiones por modo):
   320/stride 1, automático = 7 hilos reales; media **69,57 FPS** sin stream,
-  **67,32 FPS** con stream. Archivo `docs/benchmark-pilot-auto.json`, solo números.
+  **67,32 FPS** con stream. Archivo `docs/benchmarks/benchmark-pilot-auto.json`, solo números.
   Es una muestra inicial, no reemplaza el barrido completo ni evalúa precisión.
 - Siguiente: comparar hilos explícitos, barrido completo y evaluación IN=6/OUT=6.
 
@@ -216,15 +216,15 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 
 - Pilotos de 300 frames, tres repeticiones y ambos modos de stream completados:
   automático (7 hilos), 4 hilos y 1 hilo. Archivos numéricos
-  `benchmark-pilot-auto.json`, `benchmark-pilot-4threads.json` y
-  `benchmark-pilot-1thread.json`. En real, medias sin/con stream:
+  `docs/benchmarks/benchmark-pilot-auto.json`, `docs/benchmarks/benchmark-pilot-4threads.json` y
+  `docs/benchmarks/benchmark-pilot-1thread.json`. En real, medias sin/con stream:
   **69,57/67,32**, **71,80/69,42** y **71,32/69,26 FPS**, respectivamente.
 - Se eligen 4 hilos explícitos para comparar las 12 combinaciones bajo una misma
   condición; todavía no se cambia la selección automática en default.yaml.
 - Suite ampliada: **124 passed in 8.79s**, incluida la CLI de bucle con reinicio
   efectivo de tracker/conteos entre vueltas. Sin fallos de validación.
 - En ejecución: `benchmark_fps.py --torch-threads 4 --output
-  docs/benchmark-results.json`. Archivo real completo, warmup de 30 inferencias,
+  docs/benchmarks/benchmark-results.json`. Archivo real completo, warmup de 30 inferencias,
   tres repeticiones × 12 combinaciones × dos estados del stream × dos videos.
   La comparación sintética repite el AVI preexistente para igualar 1.308 frames.
   No se ejecutan tests ni otros trabajos de inferencia a la vez que el barrido.
@@ -233,7 +233,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 
 - `benchmark_fps.py` terminó con código 0: **48 grupos, 144 ejecuciones**, tres
   repeticiones por configuración/modo/fuente, warmup 30, cuatro hilos efectivos.
-  Resultados numéricos preservados en `docs/benchmark-results.json`; tablas en
+  Resultados numéricos preservados en `docs/benchmarks/benchmark-results.json`; tablas en
   `docs/BENCHMARK.md`. El origen y la comparación sintética no se modificaron.
 - **Falló una comprobación posterior**: `assert all(r['decoded_frames'] == 1308
   for r in runs)` produjo `AssertionError`. El script de comprobación acabó con
@@ -249,7 +249,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   salida de esa comprobación. Al advertirlo se detuvo el avance. El evaluador
   CLI terminó, pero su envoltorio falló por la misma exigencia de 1308 frames:
   `RuntimeError: La evaluación no recorrió los 1308 frames del MOV`. No siguió
-  con las mejores configuraciones ni generó `benchmark-evaluation.json`; no se
+  con las mejores configuraciones ni generó `docs/evaluations/benchmark-evaluation.json`; no se
   publican conteos de esa evaluación como aceptados.
 - El intento de localizar el proceso para interrumpirlo encontró una restricción
   del sandbox en `psutil.process_iter` (`Operation not permitted`). Al consultar
@@ -284,7 +284,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   tolerancia/advertencia. No se modifica el MOV para hacer coincidir sus metadatos.
 - Revisados los números existentes: las 72 pasadas reales quedan aceptadas con
   advertencia; las 72 sintéticas habían igualado el total real observado. Registro
-  en `docs/benchmark-validation.json`, con hash del JSON original sin modificarlo.
+  en `docs/evaluations/benchmark-validation.json`, con hash del JSON original sin modificarlo.
   **No se repitió el benchmark ni sus pilotos.**
 - Creado `configs/video-demo.yaml`, basado en `visual-demo.yaml`: fuente file
   `data/demo1.mov`, realtime, loop, stream y estelas activos. README contiene los
@@ -307,7 +307,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   validación solo se añadieron resultados y documentación, no cambios de código.
 - Cinco evaluaciones CLI completas terminaron con código 0 y advertencia de −1
   frame. Todas decodificaron 1307; stride 1 analizó 1307, stride 3 analizó 436.
-  Resultados y comandos en `docs/benchmark-evaluation.json`:
+  Resultados y comandos en `docs/evaluations/benchmark-evaluation.json`:
 
   | imgsz / stride / hilos | IN / OUT | Error absoluto IN / OUT | Error agregado |
   | --- | --- | --- | --- |
@@ -336,7 +336,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 - Los puertos 8765/8501 estaban ocupados: se usó configuración temporal con
   puertos **57444/57445** y rutas absolutas a los mismos video/pesos. Solo se
   copió configuración YAML, nunca el video. Procesos previos intactos; procesos
-  de prueba cerrados. Evidencia en `docs/video-demo-validation.json`.
+  de prueba cerrados. Evidencia en `docs/evaluations/video-demo-validation.json`.
 - README contiene los dos comandos exactos con `configs/video-demo.yaml` y
   APC_CONFIG; avisa liberar los puertos anteriores. LIMITATIONS refleja el error
   real y las limitaciones de generalización. El MOV conserva tamaño/mtime, sin
@@ -463,7 +463,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   `978927e6fa59a1a69b0d48734690f7b8d328e2d94853b940313da76f93a465d4`.
   Su diferencia previa contra HEAD (dos líneas de debug.counting retiradas),
   AGENTS.md y el JSON previo sin seguimiento se preservan fuera de estos commits.
-- Evidencia nueva: docs/calibration-evaluation.json. Se revisaron git diff y
+- Evidencia nueva: docs/evaluations/calibration-evaluation.json. Se revisaron git diff y
   diff --check; se versionan únicamente código, tests, YAML propio y documentación.
   La integración y documentación quedan completas; **la precisión y aptitud comercial
   no están validadas**. No se probó físicamente una cámara nueva.
@@ -471,7 +471,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 ## Nuevo montaje cenital fijo — inicio (2026-10-06)
 
 - Inicio en HEAD `63a5723`; cambios preexistentes de AGENTS.md, default.yaml y
-  docs/counting-evaluation.json conservados. Suite inicial: 14 fallos por sockets
+  docs/evaluations/counting-evaluation.json conservados. Suite inicial: 14 fallos por sockets
   bloqueados; resuelto con HTTP loopback habilitado: **227 passed in 12.34s**.
 - Nuevo archivo identificado por inventario: `data/demo2.mov`, 81.013.939 bytes,
   HEVC, OpenCV aplica rotación y entrega **1080×1920 / 29.7932035313 FPS**.
@@ -490,7 +490,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   431 cajas person en 386 frames, 341 observaciones de tracks en 312 frames,
   38 IDs, cero eventos. Ningún ID se observa a ambos lados externos de banda.
   Predominan detecciones ausentes en el umbral; no atribuirlo todo al tracker.
-  Datos completos y expiraciones en docs/door-demo-baseline.json.
+  Datos completos y expiraciones en docs/evaluations/door-demo-baseline.json.
 - ByteTrack instalado 8.3.253: high=0.25, low=0.10, new=0.25, buffer=30.
   conf=0.35 impide su segunda asociación de baja confianza. Primer experimento:
   solo conf=0.10; conservar umbrales de asociación/nacimiento y el resto.
@@ -563,7 +563,8 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   cero FP/duplicados/inversiones conocidos en cinco eventos auditados no es garantía
   global. Pendiente anotar exhaustivamente cruces y revisar encuadre/distancia que
   permita observar cuerpos suficientes; no intentar cerrar 12/13 aumentando memoria.
-- Documentación y evidencia numérica en door-demo-baseline/evaluation.json.
+- Documentación y evidencia numérica en `docs/evaluations/door-demo-baseline.json` y
+  `docs/evaluations/door-demo-evaluation.json`.
   Hash/tamaño/mtime idénticos al inicio para demo1/demo2, default, video-demo,
   calibration-evaluation y AGENTS. Sin frames/imágenes persistentes ni videos
   copiados/convertidos/subidos; cambios previos fuera de los commits.
@@ -641,7 +642,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 - **Cierre:** arquitectura implementada, tests y dashboard verificados; mejora
   defendible como prototipo, pero **no suficientemente fiable para la demo de
   conteo**. No continuar ajustando totales. Pendiente anotación completa y revisar
-  encuadre/distancia con cámara final. Evidencia nueva: door-gate-evaluation.json.
+  encuadre/distancia con cámara final. Evidencia nueva: `docs/evaluations/door-gate-evaluation.json`.
 - Verificación final **277 passed in 12.56s**, `git diff --check` limpio para el
   trabajo nuevo, perfil/JSON/resultados coherentes. Visores y servidores de prueba
   cerrados; sin procesos de inferencia de la tarea dejados activos.
@@ -649,7 +650,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 ## Auditoría y preparación — etapa 1, 2026-10-10
 
 - Git inicial `457d96d`; diferencias previas en AGENTS.md, default.yaml y
-  docs/counting-evaluation.json conservadas y excluidas de los commits propios.
+  docs/evaluations/counting-evaluation.json conservadas y excluidas de los commits propios.
 - Corregidos reinicio del productor bajo la misma ruta, actualización externa,
   conservación de borradores/conflictos, polling sin POST y reintento explícito.
   Control condicional sesión/revisión en apply/save evita escrituras obsoletas.
@@ -728,7 +729,7 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 
 - Leídos AGENTS, README, PROGRESS, DECISIONS, LIMITATIONS y BENCHMARK antes de
   evaluar. HEAD inicial c312bab; cambios preparados en AGENTS.md, default.yaml
-  y `docs/counting-evaluation.json` conservados. Sin commits, push ni PR.
+  y `docs/evaluations/counting-evaluation.json` conservados. Sin commits, push ni PR.
 - Original privado de solo lectura: HEVC, 32.924.215 bytes, 56,268333 s,
   1686 frames declarados, verificados por FFprobe y decodificados por OpenCV.
   Codificado 476×848, matriz de rotación −90°; OpenCV/FFmpeg aplica orientación
@@ -857,3 +858,15 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   resuelto 6/6**. El valor activo .6106 da 6/6 en una pasada, pero el filtro sigue
   descartando y la confirmación de ID29 es estrecha. Siguiente etapa pendiente
   de autorización: anotación temporal y geometría antes de cualquier corrección.
+## Organización de resultados JSON — 2026-10-10
+
+- Formalizados con `git mv` los doce movimientos existentes: cuatro mediciones
+  en `docs/benchmarks/` y ocho evaluaciones/validaciones en `docs/evaluations/`.
+  Actualizados enlaces y comandos Markdown; cambios preexistentes conservados.
+- Verificación: doce hashes SHA-256 idénticos, catorce enlaces JSON resueltos y
+  ninguna ruta antigua en scripts/configuraciones/tests/código de producción.
+  Pruebas de benchmark, diagnóstico de evaluación y próxima validación:
+  **18 passed in 1.12s** con datos simulados. `git diff --check` y su variante
+  `--cached` sin errores. No se ejecutaron benchmarks ni evaluaciones nuevas.
+- Las referencias internas históricas de los JSON se conservan sin cambios.
+  Sin modificaciones de algoritmos o parámetros, commits ni push.

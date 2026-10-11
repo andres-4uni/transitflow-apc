@@ -1,0 +1,142 @@
+{
+  "video": "data/demo1.mov",
+  "manual_reference": {
+    "in": 6,
+    "out": 6
+  },
+  "baseline": {
+    "decoded_frames": 1307,
+    "processed_frames": 1307,
+    "frame_validation": {
+      "declared": 1308,
+      "decoded": 1307,
+      "difference": -1,
+      "tolerance": 2,
+      "status": "warning",
+      "warning": "Frames declarados=1308, decodificados=1307: diferencia -1 aceptada dentro de ±2"
+    },
+    "elapsed_seconds": 21.7265927499393,
+    "in": {
+      "expected": 6,
+      "observed": 0,
+      "absolute_error": 6,
+      "error_percent": 100.0
+    },
+    "out": {
+      "expected": 6,
+      "observed": 0,
+      "absolute_error": 6,
+      "error_percent": 100.0
+    },
+    "absolute_error_sum": 12,
+    "error_percent_combined": 100.0,
+    "occupancy": 0,
+    "video": "data/demo1.mov",
+    "imgsz": 320,
+    "vid_stride": 1,
+    "conf": 0.35,
+    "torch_threads_requested": 0
+  },
+  "experiments": [
+    {
+      "orientation": "vertical",
+      "position": 0.5,
+      "band_half_width": 0.04,
+      "enter_direction": "left",
+      "imgsz": 320,
+      "conf": 0.35,
+      "max_missing_frames": 2,
+      "in": 1,
+      "out": 0
+    },
+    {
+      "orientation": "vertical",
+      "position": 0.5,
+      "band_half_width": 0.04,
+      "enter_direction": "left",
+      "imgsz": 416,
+      "conf": 0.35,
+      "max_missing_frames": 2,
+      "in": 1,
+      "out": 1
+    },
+    {
+      "orientation": "vertical",
+      "position": 0.5,
+      "band_half_width": 0.04,
+      "enter_direction": "left",
+      "imgsz": 416,
+      "conf": 0.1,
+      "max_missing_frames": 2,
+      "in": 1,
+      "out": 1
+    }
+  ],
+  "final": {
+    "decoded_frames": 1307,
+    "processed_frames": 1307,
+    "frame_validation": {
+      "declared": 1308,
+      "decoded": 1307,
+      "difference": -1,
+      "tolerance": 2,
+      "status": "warning",
+      "warning": "Frames declarados=1308, decodificados=1307: diferencia -1 aceptada dentro de ±2"
+    },
+    "elapsed_seconds": 26.058230667025782,
+    "in": {
+      "expected": 6,
+      "observed": 2,
+      "absolute_error": 4,
+      "error_percent": 66.66666666666667
+    },
+    "out": {
+      "expected": 6,
+      "observed": 2,
+      "absolute_error": 4,
+      "error_percent": 66.66666666666667
+    },
+    "absolute_error_sum": 8,
+    "error_percent_combined": 66.66666666666667,
+    "occupancy": 0,
+    "video": "data/demo1.mov",
+    "imgsz": 416,
+    "vid_stride": 1,
+    "conf": 0.1,
+    "torch_threads_requested": 0,
+    "counting": {
+      "orientation": "vertical",
+      "position": 0.5,
+      "band_half_width": 0.04,
+      "enter_direction": "left",
+      "min_track_frames": 3,
+      "max_missing_frames": 12
+    }
+  },
+  "confirmed_events": [
+    {
+      "frame": 352,
+      "track_id": 7,
+      "direction": "in"
+    },
+    {
+      "frame": 585,
+      "track_id": 9,
+      "direction": "out"
+    },
+    {
+      "frame": 863,
+      "track_id": 18,
+      "direction": "in"
+    },
+    {
+      "frame": 1260,
+      "track_id": 35,
+      "direction": "out"
+    }
+  ],
+  "video_size_bytes": 36190296,
+  "video_mtime_ns": 1790883891314778494,
+  "event_indices": "Frames procesados, base cero; stride=1. Tiempo aproximado=frame/59.97249.",
+  "privacy": "Solo números y texto; sin imágenes, frames ni copias de video."
+}

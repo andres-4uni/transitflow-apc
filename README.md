@@ -93,8 +93,8 @@ expresa esa referencia independiente para este archivo; no reutilizarla en otros
 La auditoría temporal es parcial: tres IN omitidos están contrastados, además de
 cinco eventos correctos y cambios de ID entre personas. No se calcula
 precision/recall ni se certifica ausencia global de FP/duplicados/inversiones.
-Historial intacto: [evaluación tripwire](docs/door-demo-evaluation.json).
-Resultado nuevo y ablaciones: [evaluación de compuerta](docs/door-gate-evaluation.json).
+Historial intacto: [evaluación tripwire](docs/evaluations/door-demo-evaluation.json).
+Resultado nuevo y ablaciones: [evaluación de compuerta](docs/evaluations/door-gate-evaluation.json).
 
 Perfil actual: `mode: dual_zone`, horizontal, A y<.40 / B y>.65; neutro [.40,.65]
 contiene el umbral físico y≈.60. IN↓ A→B / OUT↑ B→A, anchor centroide, mínimo
@@ -129,7 +129,7 @@ locales y en RAM; el archivo se repite y reinicia conteos por vuelta.
 Para otra evaluación numérica completa (destino nuevo; no sobrescribe):
 
 ```sh
-.venv/bin/python scripts/evaluate_counts.py --config configs/door-demo.yaml --expected-in 12 --expected-out 13 --verified-frames 2038 --diagnostics --output docs/nueva-door-gate-evaluation.json
+.venv/bin/python scripts/evaluate_counts.py --config configs/door-demo.yaml --expected-in 12 --expected-out 13 --verified-frames 2038 --diagnostics --output docs/evaluations/nueva-door-gate-evaluation.json
 ```
 
 El JSON relaciona eventos, lados, edad, centroide, pérdidas, bordes, expiraciones,
@@ -167,7 +167,7 @@ absolutos IN=5, OUT=6, total=11 (**91,67%**). La línea vertical está en x=0.64
 banda ±0.04 e IN hacia la izquierda. Se conservaron imgsz=320, conf=0.35,
 stride=1 y tolerancia de dos frames perdidos; no se ajustaron al objetivo 6/6.
 El conteo aún no es fiable. Diagnóstico por intervalo y resultados reproducibles
-en [calibration-evaluation.json](docs/calibration-evaluation.json) y
+en [calibration-evaluation.json](docs/evaluations/calibration-evaluation.json) y
 [LIMITATIONS](docs/LIMITATIONS.md#evaluación-real-con-calibración-visual--2026-10-03).
 
 **VIDEO LOCAL: no se guarda ni se transmite fuera de este equipo**.
@@ -390,7 +390,7 @@ python scripts/evaluate_counts.py --video data/demo1.mov --expected-in 6 --expec
 
 # Máxima velocidad: sin realtime, 12 combinaciones, stream apagado/encendido,
 # video real y AVI sintético preexistente, warmup 30, tres repeticiones.
-python scripts/benchmark_fps.py --video data/demo1.mov --torch-threads 4 --output docs/nueva-medicion.json
+python scripts/benchmark_fps.py --video data/demo1.mov --torch-threads 4 --output docs/benchmarks/nueva-medicion.json
 ```
 
 El benchmark conserva solo estadísticas JSON y rechaza sobrescribir resultados.
@@ -427,10 +427,10 @@ Cuando exista el archivo, use su ruta explícita y conteos manuales reales:
 
 ```sh
 # Defina VIDEO, IN_MANUAL y OUT_MANUAL con la ruta y referencias del nuevo video.
-.venv/bin/python scripts/evaluate_counts.py --config configs/next-video.yaml --video "$VIDEO" --expected-in "$IN_MANUAL" --expected-out "$OUT_MANUAL" --diagnostics --output docs/next-video-evaluation-01.json
+.venv/bin/python scripts/evaluate_counts.py --config configs/next-video.yaml --video "$VIDEO" --expected-in "$IN_MANUAL" --expected-out "$OUT_MANUAL" --diagnostics --output docs/evaluations/next-video-evaluation-01.json
 
 # Tres repeticiones, solo esa entrada; mide overlay/JPEG apagado y encendido en RAM.
-.venv/bin/python scripts/benchmark_fps.py --config configs/next-video.yaml --video "$VIDEO" --real-only --imgsz 320 --vid-stride 1 --warmup 30 --repeats 3 --output docs/next-video-benchmark-01.json
+.venv/bin/python scripts/benchmark_fps.py --config configs/next-video.yaml --video "$VIDEO" --real-only --imgsz 320 --vid-stride 1 --warmup 30 --repeats 3 --output docs/benchmarks/next-video-benchmark-01.json
 ```
 
 Ambas herramientas rechazan destinos existentes; cambie el sufijo para otra

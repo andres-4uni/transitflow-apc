@@ -6,7 +6,7 @@ en cualquier notebook. Referencia manual del único video real: **IN=6, OUT=6**.
 Se conservan las 144 ejecuciones originales, sin repetir el barrido. Por instrucción
 del usuario se admite la diferencia normal del MOV: **1.308 declarados / 1.307
 decodificados**, dentro de **±2 frames**, con advertencia. La revisión de las 72
-pasadas reales está en [benchmark-validation.json](benchmark-validation.json),
+pasadas reales está en [benchmark-validation.json](evaluations/benchmark-validation.json),
 con hash del archivo original; los tiempos y resultados no se modificaron.
 
 Todas las combinaciones reales superaron 20 FPS en las tres repeticiones y ambos
@@ -31,7 +31,7 @@ y validar el conteo; la velocidad suficiente no demuestra precisión.
 ## Método reproducible
 
 ```sh
-.venv/bin/python scripts/benchmark_fps.py --torch-threads 4 --output docs/nueva-medicion.json
+.venv/bin/python scripts/benchmark_fps.py --torch-threads 4 --output docs/benchmarks/nueva-medicion.json
 ```
 
 El resultado no puede sobreescribir un archivo existente. Por defecto mide las
@@ -98,12 +98,12 @@ Se usan cuatro hilos explícitos en el barrido. La diferencia real entre uno y
 cuatro es pequeña; el sintético favorece cuatro. No se afirma una ventaja
 universal ni se modifica el modo automático por estos pilotos.
 
-Datos: [auto](benchmark-pilot-auto.json), [cuatro hilos](benchmark-pilot-4threads.json),
-[un hilo](benchmark-pilot-1thread.json).
+Datos: [auto](benchmarks/benchmark-pilot-auto.json), [cuatro hilos](benchmarks/benchmark-pilot-4threads.json),
+[un hilo](benchmarks/benchmark-pilot-1thread.json).
 
 ## Resultados del barrido completo
 
-Datos numéricos de las 144 ejecuciones: [benchmark-results.json](benchmark-results.json).
+Datos numéricos de las 144 ejecuciones: [benchmark-results.json](benchmarks/benchmark-results.json).
 La discrepancia 1.307/1.308 quedó aceptada con advertencia. Cada celda
 de FPS muestra **media / p50 / p95** de tres pasadas; los mínimos se muestran
 separadamente. Se usan cuatro hilos de torch en todas ellas.
@@ -236,7 +236,7 @@ Los modos se ejecutaron secuencialmente. Diferencias de FPS donde stream encendi
 
 ## Evaluación contra IN=6 / OUT=6
 
-Datos completos, comandos y advertencias: [benchmark-evaluation.json](benchmark-evaluation.json).
+Datos completos, comandos y advertencias: [benchmark-evaluation.json](evaluations/benchmark-evaluation.json).
 Una pasada por configuración, con tracker y contadores inicialmente vacíos, sin
 loop, sin descartar calentamiento y sin modificar `conf=0.35`, áreas ni conteo.
 La configuración por defecto usa hilos automáticos (7 en este entorno); el
@@ -330,7 +330,7 @@ salud/HTML de Streamlit y AppTest contra la API real sin excepciones ni errores,
 con panel de video y un vagón con señal. Como 8765/8501 estaban ocupados, se usó
 una copia de configuración de prueba con rutas absolutas y puertos libres
 57444/57445; el MOV no se copió y los procesos previos no se alteraron. Los
-procesos de prueba se cerraron. Evidencia: [video-demo-validation.json](video-demo-validation.json).
+procesos de prueba se cerraron. Evidencia: [video-demo-validation.json](evaluations/video-demo-validation.json).
 
 No hubo inspección visual en navegador ni imágenes de personas enviadas a
 herramientas externas. Reiniciar los contadores por vuelta evita acumular las
@@ -345,8 +345,8 @@ datos antes de presentar este prototipo como contador fiable.
 
 ## Nota del nuevo montaje — etapa tripwire histórica, 2026-10-06
 
-La evaluación de `data/demo2.mov` está separada en door-demo-baseline.json y
-[door-demo-evaluation.json](door-demo-evaluation.json): 2038 frames reproducibles,
+La evaluación de `data/demo2.mov` está separada en [door-demo-baseline.json](evaluations/door-demo-baseline.json) y
+[door-demo-evaluation.json](evaluations/door-demo-evaluation.json): 2038 frames reproducibles,
 1080×1920, 29.793 FPS declarados; lista de edición verificada con FFprobe.
 Baseline 320/.35: **70.829 FPS, 0/0**. Perfil diagnóstico 416/.10, ByteTrack sin
 fuse_score y cinco ausencias: **52.475 FPS, 4/1** frente a 12/13.
@@ -363,7 +363,7 @@ El perfil door-demo actual usa dual_zone A=.40/B=.65, TTL .9 s, observaciones de
 zona y unión conservadora de fragmentos. Resultado histórico posterior al
 tripwire: **8/12 frente a 12/13 (20% agregado)**; dos pasadas de 2038 frames con
 misma secuencia, **26.913/26.158 FPS** sin overlay/JPEG. Smoke de dashboard:
-**22.83 FPS**. Evidencia separada: [door-gate-evaluation.json](door-gate-evaluation.json).
+**22.83 FPS**. Evidencia separada: [door-gate-evaluation.json](evaluations/door-gate-evaluation.json).
 No se sobrescriben ni repiten los pilotos/barridos/JSON anteriores. Esa mejora
 no certifica precisión y los promedios de demo no prueban capacidad sostenida
 ni latencia. min_zone_frames mide observaciones conservables durante ausencia
