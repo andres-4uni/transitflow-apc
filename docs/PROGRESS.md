@@ -870,3 +870,21 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   `--cached` sin errores. No se ejecutaron benchmarks ni evaluaciones nuevas.
 - Las referencias internas históricas de los JSON se conservan sin cambios.
   Sin modificaciones de algoritmos o parámetros, commits ni push.
+
+## Renombrado del repositorio — 2026-10-16
+
+- `origin` actualizado a `https://github.com/andres-4uni/transitflow-apc.git`
+  para fetch y push; acceso a `main` comprobado con `git ls-remote`.
+- README actualizado a TransitFlow APC, con enlace y comandos de clonación.
+  Conservadas las referencias históricas, el nombre del paquete Python, la
+  carpeta local, el código y las configuraciones. Cambios previos preparados
+  en AGENTS.md y configs/default.yaml excluidos del commit de esta tarea.
+- Primera ejecución: 322 passed / 17 failed por sockets locales bloqueados en
+  sandbox. Repetición con acceso a sockets: `.venv/bin/python -m pytest -q`
+  → **339 passed in 16.02s**. No se modificaron tests ni dependencias.
+- Ejecutados `run_demo.py --help` y `run_demo.py --fake-tracks --max-frames 12`
+  con código 0; demo sintética: 12 frames, sin cámara, YOLO ni imágenes guardadas.
+  Los 11,91 FPS incluyen el ritmo artificial y no son un benchmark de inferencia.
+- GitHub rechazó el push directo a `main` (GH013): la rama está protegida y
+  exige pull request. Se publica el cambio en `docs/rename-transitflow-apc`
+  para revisión; la integración a `main` queda pendiente del flujo protegido.

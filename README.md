@@ -1,4 +1,6 @@
-# APC Metro
+# TransitFlow APC
+
+Repositorio: [andres-4uni/transitflow-apc](https://github.com/andres-4uni/transitflow-apc).
 
 Prototipo universitario de conteo de pasajeros. Procesamiento local en notebook
 sin GPU; no almacena frames, rostros ni videos de salida. El modo normal publica
@@ -7,6 +9,8 @@ solo telemetría numérica; el video local anotado es una opción de demostraci�
 ## Instalación (Python 3.11)
 
 ```sh
+git clone https://github.com/andres-4uni/transitflow-apc.git
+cd transitflow-apc
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'

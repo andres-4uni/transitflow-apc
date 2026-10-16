@@ -1,5 +1,19 @@
 # Decisiones
 
+## Nombre del repositorio — 2026-10-16
+
+- El repositorio GitHub pasa de `transport-cam-counter` a `transitflow-apc`;
+  `origin` usa `https://github.com/andres-4uni/transitflow-apc.git`.
+- README identifica el proyecto como TransitFlow APC y usa la nueva URL para
+  clonar. Se conservan las rutas y decisiones históricas de este documento y
+  PROGRESS, así como los resultados de evaluaciones y benchmarks.
+- El nombre de distribución Python `apc-metro`, el módulo `apc` y los rótulos
+  APC Metro del dashboard se mantienen: el cambio afecta al repositorio, sin
+  modificar instalación, lógica, parámetros ni funcionamiento.
+- La carpeta local existente no se renombra; conserva las rutas del entorno
+  virtual y de los archivos locales ignorados. Los clones nuevos usan el nombre
+  `transitflow-apc`.
+
 ## Hito 1 — 2026-09-30
 - Usar la raíz existente como `apc-metro/`, sin duplicar carpetas.
 - Configuración con dataclasses y YAML seguro; rutas relativas al padre de la
