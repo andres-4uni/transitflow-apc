@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from dataclasses import replace
 from time import perf_counter
 
@@ -13,6 +14,7 @@ from apc.counting.occupancy import OccupancyCounter
 from apc.counting.factory import create_counter, update_counter, configure_detector_clock
 from apc.counting.debug import CountingDebug
 from apc.detection.detector import PersonDetector
+from apc.performance import LiveMetrics
 from apc.publisher.server import TelemetryPublisher
 from apc.publisher.telemetry import TelemetryStore, make_sample
 from apc.publisher.video import LatestFrame
@@ -30,10 +32,14 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--max-frames", type=int, default=0, help="0: hasta finalizar")
     parser.add_argument("--realtime", action="store_true", help="Limitar archivos a su FPS original")
     parser.add_argument("--loop", action="store_true", help="Repetir archivo; reinicia conteos en cada vuelta")
+    parser.add_argument("--metrics", action="store_true", help="FPS de recepción e inferencia por separado; solo stream/webcam")
     args = parser.parse_args(argv)
     if args.max_frames < 0:
         parser.error("--max-frames no puede ser negativo")
     config = load_config(args.config)
+    if args.metrics and (args.fake_tracks or config.source.type not in {"stream", "webcam"}):
+        parser.error("--metrics requiere una fuente stream/webcam real; no --fake-tracks")
+    metrics = LiveMetrics() if args.metrics else None
     if (args.realtime or args.loop) and (args.fake_tracks or config.source.type != "file"):
         parser.error("--realtime y --loop requieren una fuente file")
     config = replace(config, source=replace(config.source,
@@ -62,6 +68,8 @@ def main(argv: list[str] | None = None) -> None:
         with TelemetryPublisher(store, config.telemetry.port, video=video, calibration=calibration), source:
             configure_detector_clock(detector, source)
             for packet in source:
+                if metrics:
+                    metrics.received(packet, perf_counter())
                 # La misma ruta se usa para archivo, USB/webcam y HTTP/RTSP.
                 requested_revision, counting = calibration.current()
                 if requested_revision != revision:
@@ -88,11 +96,15 @@ def main(argv: list[str] | None = None) -> None:
                 occupancy.apply(update_counter(counter, tracks, packet, source))
                 trails = history.update(tracks) if history else None
                 processed += 1
+                if metrics:
+                    metrics.inferred(detector.last_timings, perf_counter())
                 fps = processed / max(perf_counter() - start, 1e-9)
                 if perf_counter() - last_publish >= config.telemetry.interval_seconds:
                     store.publish(make_sample(config.telemetry.wagon_id, occupancy, fps,
                                               timestamp=packet.timestamp, simulated=args.fake_tracks))
                     last_publish = perf_counter()
+                    if metrics:
+                        print(json.dumps({"performance": metrics.snapshot()}), file=sys.stderr, flush=True)
                 if show or video.can_publish():
                     annotated = draw_overlay(packet.frame, tracks, config.counting, config.visualization,
                                              entries=occupancy.entries, exits=occupancy.exits,
@@ -111,10 +123,13 @@ def main(argv: list[str] | None = None) -> None:
     finally:
         if show:
             cv2.destroyAllWindows()
-    print(json.dumps({"frames": processed,
+    summary = {"frames": processed,
                       "fps": round(processed / max(perf_counter() - start, 1e-9), 2),
                       "entries": occupancy.entries, "exits": occupancy.exits,
-                      "occupancy": occupancy.occupancy}))
+                      "occupancy": occupancy.occupancy}
+    if metrics:
+        summary["performance"] = metrics.snapshot()
+    print(json.dumps(summary))
 
 
 if __name__ == "__main__":

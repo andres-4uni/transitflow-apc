@@ -1,0 +1,29 @@
+# Perfil optativo: elegir con --config; no hereda default.yaml.
+# Firmware validado: no recompilar ni cambiar resolución/ajustes para prepararlo.
+source:
+  type: stream
+  url: "http://apc-metro.local:81/stream"  # Sustituible por la IP actual.
+  queue_size: 2
+  open_timeout_ms: 5000
+  read_timeout_ms: 3000
+detection:
+  model: models/yolov8n.pt
+  tracker: bytetrack.yaml
+  imgsz: 320
+  conf: 0.35
+  vid_stride: 1
+# Sin bloque counting: conserva los valores de CountingConfig, SIN calibración
+# física. No copiar calibraciones de demo1/demo2/demo3 ni ajustarlas hasta carcasa.
+visualization:
+  stream: true  # Solo al ejecutar explícitamente este perfil; MJPEG en loopback.
+  show_boxes: true
+  show_ids: true
+  show_trails: true
+  trail_length: 20
+  show_line: false  # Geometría no validada; detecciones visibles sin sugerirlo.
+  show_band: false
+  show_counters: true
+  max_fps: 10.0  # Solo publicación del overlay, no FPS de cámara/inferencia.
+debug:
+  show_video: false
+  counting: false
