@@ -1,9 +1,10 @@
 # Progreso
 
-**Firmware de cámara 2026-10-21:** implementado en `firmware/esp32-camera`,
-compilado para XIAO ESP32S3/OV3660 y probado localmente: **351 tests aprobados**
-(12 nuevos). Sin flashear; aceptación física Wi-Fi/BOOT/LED/powerbank pendiente.
-Defaults y código de producción Python intactos. Detalle al final de este registro.
+**Firmware de cámara 2026-10-21, actualización:** usuario confirma AP/portal y
+escaneo del hotspot, pero Guardar fue rechazado. Conflicto no-referrer/Origin null
+reproducido en Chrome; corrección y diagnósticos compilados. **353 tests aprobados**;
+nueva carga USB y aceptación física pendientes. Problema físico aún abierto.
+Defaults y producción Python intactos. Detalle al final de este registro.
 
 **Resumen 2026-10-10:** primera evaluación de demo3: **6 IN / 4 OUT frente a 6/6**,
 error agregado 16,67%. El archivo entrega 848×476 / 29,964 FPS, no 1280×720.
@@ -964,3 +965,60 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   coincide con el repositorio público de la cuenta autenticada, propietaria y
   administradora; la revisión aceptó el mismo push con esa evidencia, sin cambiar
   de destino ni incluir artefactos privados. No se ha creado ni fusionado PR.
+
+## Rechazo físico de Guardar Wi-Fi — corrección local, pendiente de hardware (2026-10-21)
+
+- Confirmación del usuario: el firmware propio ya está cargado, AP/portal en
+  192.168.4.1 funcionan y listan hotspot del iPhone. Guardar devuelve «Solicitud
+  inválida; recargar portal»; LED amarillo sigue rápido. Esto confirma descubrimiento
+  de la red, no asociación, clave correcta, persistencia ni streaming de la cámara.
+- HEAD inicial 1eda48a, misma rama feat/esp32-camera-setup. Leídos AGENTS,
+  progreso/contexto previo y código del firmware/tests. Se conservan los cambios
+  preparados de AGENTS/default y el contexto de hardware sin seguimiento.
+- Inspeccionado core instalado Arduino-ESP32 3.3.12: collectHeaders conserva
+  nombres/valores por petición; _parseRequest reconoce Origin y el POST
+  application/x-www-form-urlencoded, _parseArguments decodifica los campos y
+  String.equalsConstantTime compara el token completo. Sin evidencia de defecto
+  en esas funciones. No se modifica el core ni la referencia oficial preservada.
+- Causa local reproducida: reply enviaba Referrer-Policy=no-referrer, que en
+  navegación POST convierte Origin en null según Fetch. Chrome headless con
+  perfil temporal y formulario/cabeceras emitidos por el controlador real devolvió
+  Origin null **con token válido**; la regresión de origen esperado falló antes de
+  corregir (1 passed/1 failed en 6,86 s). No se capturó el POST real del usuario:
+  este mecanismo encaja con su síntoma, sin declararlo confirmado en su placa.
+- Cambiado Referrer-Policy a same-origin. Se mantiene rechazo de Origin null y
+  ajeno, restricción AP/interfaz/cliente/Host, CSP y comparación constante de CSRF.
+  Se recogen Origin y Content-Type, enctype explícito en los dos formularios,
+  tipo no admitido rechazado con 415 y campos ausentes separados de clave vacía.
+- Diagnósticos estáticos en serial/respuesta para cada rechazo: ap_inactive,
+  ap_interface, ap_client, host, origin_null, origin_foreign, post_type,
+  csrf_session/missing/length/mismatch, fields_missing, credentials_encoding/
+  format, busy y nvs_unavailable. POST aceptado informa categorías origin,
+  csrf=ok y form=urlencoded. Nunca imprime token, SSID, claves, cuerpo ni valores
+  de cabeceras recibidas. La contraseña AP local se conserva sin mostrarla.
+- Doble HAL ajustado a collectHeaders/hasArg y renovación de token entre sesiones.
+  Tests del controlador real verifican token válido con origen null/ajeno, tokens
+  ausentes/cortos/distintos/caducados con origen válido, tipos de contenido,
+  parámetros charset, campos ausentes, Origin ausente y puerto explícito 80,
+  además de persistencia/recuperación previas y ausencia de secretos en logs.
+- Nuevas pruebas Chrome/loopback: política antigua reproduce null; política actual
+  envía origen local. Token de formulario intacto; SSID UTF-8 y signos + & = %
+  llegan correctamente codificados. Datos exclusivamente sintéticos, sin perfil
+  personal, imágenes ni conexión a la cámara. El POST lo decodifica el servidor
+  del Mac; **no sustituye ejecutar el parser WebServer en hardware**.
+- Pruebas de firmware: **14 passed in 6.94s**. Tras añadir comprobación exacta del
+  token de navegador, regresión final `.venv/bin/python -m pytest -q` con sockets
+  loopback/Chrome autorizados: **353 passed in 23.12s**, cero fallos. Dos tests
+  Chrome pueden omitirse en equipos sin navegador instalado; aquí sí se ejecutaron.
+- Compilación real `python3 firmware/esp32-camera/tools/manage.py build` correcta:
+  **1.087.606 bytes (32% de 3.342.336)**, globales **72.936 (22% de 327.680)**.
+  XIAO ESP32S3, OPI PSRAM, 8MB, CDC enabled, default_8MB y DebugLevel none
+  conservados. Sin dependencias nuevas ni cambios de cámara/stream/contador.
+- compileall, diff --check y revisión de artefactos privados realizadas. `ports`
+  no detecta XIAO USB (solo Bluetooth/debug). No se intentó upload/monitor ni se
+  modificó NVS o la placa. La guía entrega comandos exactos y advierte que
+  /dev/cu.usbmodem1101 es el puerto anterior, a sustituir si aparece otro.
+- **Siguiente requerido:** usuario carga por USB, abre página nueva del portal y
+  repite Guardar. Confirmar post=accepted, intento de red, IP, LED fijo y cierre AP;
+  luego panel/MJPEG/persistencia. Si falla, compartir solo código reject=... o
+  estados sin secretos. **No se declara resuelto el problema físico.**

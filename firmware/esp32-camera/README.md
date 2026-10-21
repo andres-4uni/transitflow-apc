@@ -4,11 +4,13 @@ Firmware independiente basado en CameraWebServer oficial. La cámara transmite
 JPEG/MJPEG por Wi-Fi; OpenCV, YOLO, ByteTrack y conteo siguen ejecutándose en el
 Mac. No cambia código de producción Python ni defaults de conteo.
 
-**Estado 2026-10-21:** compilación del firmware nuevo y referencia oficial
-correctas; pruebas C++ con HAL simulada y transporte HTTP sintético aprobadas.
-**No se ha flasheado ni probado este firmware en la placa.** El firmware oficial
-que el usuario validó por Wi-Fi/powerbank sigue siendo la evidencia física previa.
-La sustitución debe superar la matriz de aceptación de este documento.
+**Estado 2026-10-21, tras primera prueba física:** el usuario cargó el firmware,
+accedió al AP/portal y vio el hotspot del iPhone en el escaneo. Guardar la red
+falló con «Solicitud inválida». Se reprodujo localmente un conflicto entre
+Referrer-Policy y Origin y se preparó la corrección de abajo. **La corrección
+todavía requiere carga USB y nueva prueba física; conexión/persistencia/streaming
+del firmware propio no se declaran validados.** La referencia oficial anterior
+sí tenía evidencia de Wi-Fi/powerbank; mantener esa distinción.
 
 ## Qué se conserva
 
@@ -84,6 +86,70 @@ Si el puerto no aparece: verificar cable, volver a ejecutar `ports`; como
 recuperación de carga mantener BOOT, pulsar/soltar RESET, soltar BOOT y buscar
 el puerto del cargador. Subir y después pulsar RESET con BOOT libre.
 El procedimiento USB de recuperación siempre permanece disponible.
+
+### Actualizar por el rechazo de «Guardar y conectar»
+
+El portal anterior enviaba `Referrer-Policy: no-referrer`. Para un POST HTML de
+navegación, el [estándar Fetch](https://fetch.spec.whatwg.org/#append-a-request-origin-header)
+puede convertir el encabezado en `Origin: null`, aunque el token oculto sea
+correcto. Chrome local reprodujo exactamente esa combinación. El firmware cambia
+la política a **same-origin** y conserva el rechazo de `null`/orígenes ajenos,
+la comparación constante del CSRF, la exclusividad AP y el Host permitido.
+No se amplía la lista de orígenes permitidos para hacer pasar la prueba.
+
+El core 3.3.12 procesa este POST con `_parseRequest` y `_parseArguments` de
+WebServer: `application/x-www-form-urlencoded` decodifica token/SSID/password
+antes del handler. Se recolectan explícitamente **Origin y Content-Type**, ambos
+formularios declaran el enctype y se distingue un campo vacío de uno ausente.
+Los tests de navegador verifican token intacto y codificación de `+`, `&`, `=`,
+`%` y UTF-8. No se modificó el parser del core. Esas pruebas usan un servidor
+loopback del Mac; no sustituyen el parser/transporte real en la placa.
+
+Desde la raíz, con USB conectado y cualquier otro monitor cerrado:
+
+```sh
+python3 firmware/esp32-camera/tools/manage.py build
+python3 firmware/esp32-camera/tools/manage.py ports
+python3 firmware/esp32-camera/tools/manage.py upload --port /dev/cu.usbmodem1101
+python3 firmware/esp32-camera/tools/manage.py monitor --port /dev/cu.usbmodem1101
+```
+
+`/dev/cu.usbmodem1101` es el puerto registrado anteriormente, **no un puerto
+detectado durante esta corrección**. Sustituirlo si `ports` muestra otro. No se
+ha ejecutado upload en esta sesión. Se conserva la clave AP local existente,
+la pareja NVS, los parámetros de cámara y los defaults de conteo.
+
+Después de actualizar: abrir una página nueva en **http://192.168.4.1/**; no
+reenviar el POST de una pestaña anterior ni de «Atrás» (su token puede pertenecer
+a otra sesión). Seleccionar el hotspot, escribir la clave solo en el portal y
+pulsar Guardar. Esperado por serial:
+
+```text
+[portal] post=accepted origin=local csrf=ok form=urlencoded
+Wi-Fi: probando nueva red; solo se guarda al obtener IP.
+```
+
+Si el navegador omite Origin se admite como antes, siempre con AP/Host/token
+correctos, y el diagnóstico dice `origin=absent`. Tras IP deben desaparecer el AP
+y el parpadeo rápido; comprobar luego panel/stream y persistencia tras reinicio.
+Si no ocurre, registrar únicamente el código de rechazo o los estados seriales,
+nunca el cuerpo POST, token, SSID o contraseñas. No hace falta capturar tráfico.
+
+| Diagnóstico de serial y respuesta | Qué falló |
+| --- | --- |
+| `origin_null` | Origen opaco; recargar una página nueva del firmware actualizado |
+| `origin_foreign` | Origin distinto de la IP AP HTTP, puerto 80 |
+| `csrf_missing` / `csrf_length` | Token ausente o mal formado en los argumentos POST |
+| `csrf_mismatch` / `csrf_session` | Token distinto (página vieja) o sesión no válida |
+| `post_type` | Content-Type no es application/x-www-form-urlencoded; HTTP 415 |
+| `fields_missing` | Falta SSID o password; una clave vacía sí es un campo presente |
+| `credentials_encoding` / `credentials_format` | Longitud, NUL o formato de credenciales inválido |
+| `ap_inactive` / `ap_interface` / `ap_client` / `host` | Falló la restricción de acceso al AP |
+| `busy` / `nvs_unavailable` | Operación pendiente o almacenamiento no disponible |
+
+Los diagnósticos registran **códigos fijos**, sin valores de cabeceras, campos ni
+tokens. Las pruebas locales ya no reproducen el rechazo con la política nueva;
+**el problema físico permanece abierto hasta repetir Guardar en el ESP32**.
 
 Para volver a la referencia oficial si la aceptación falla: ejecutar `manage.py
 reference`, editar **solo** `.build/reference/CameraWebServer/CameraWebServer.ino`
@@ -225,7 +291,7 @@ imágenes ni rostros. Usar una escena sin personas para verificar transporte.
 
 | Prueba | Procedimiento y resultado exigido |
 | --- | --- |
-| Casa | Flash USB una vez; AP protegido, acceso IP, elegir red 2,4 GHz; LED fijo, IP serial; panel y 60 frames OpenCV |
+| Casa | Flash USB; AP protegido, acceso IP, elegir red 2,4 GHz; LED fijo, IP serial; panel y 60 frames OpenCV. AP/escaneo observados por usuario con hotspot; Guardar rechazado, corrección pendiente de prueba |
 | Reinicio/powerbank | Desconectar USB, encender powerbank con BOOT libre; sin portal si red guardada disponible; repetir OpenCV; comprobar varios reinicios |
 | Cambio de red | Con video activo mantener BOOT 4 s y soltar; video se cierra, LED rápido, portal AP; nueva red conecta y persiste tras apagar |
 | Clave incorrecta | Probar deliberadamente clave errónea; tras 25 s reaparece portal; reiniciar y comprobar que aún intenta la red anterior |

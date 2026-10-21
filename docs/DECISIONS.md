@@ -476,3 +476,35 @@
   sintético leído por StreamSource, además de regresión Python completa. La matriz
   física casa/iPhone/powerbank/BOOT/red ausente queda explícitamente pendiente.
   No certificar FPS físicos ni precisión de conteo a partir de estas pruebas.
+
+## Rechazo del POST de configuración — 2026-10-21
+
+- El usuario confirma AP/portal y escaneo del hotspot del iPhone en hardware;
+  Guardar devuelve el rechazo genérico previo y LED sigue rápido. El rechazo
+  sucede antes de WiFi.begin/NVS: no atribuirlo a la contraseña ni a iPhone.
+- Reproducido con formulario/cabeceras del controlador C++ real servido en
+  loopback y Chrome headless con perfil temporal: no-referrer produce Origin
+  null con el token correcto. Una regresión falló antes de corregir y pasa
+  tras cambiar solo esa política a same-origin. Fuente normativa:
+  [Fetch, append a request Origin header](https://fetch.spec.whatwg.org/#append-a-request-origin-header).
+- No aceptar Origin null ni omitir CSRF. Same-origin conserva Origin local en
+  el POST y no comparte Referer con sitios externos. Origin ausente sigue
+  admitido únicamente con AP, cliente, Host y CSRF válidos, igual que antes.
+- Revisado WebServer 3.3.12 instalado: collectHeaders copia los nombres,
+  _parseRequest recolecta Origin y Content-Type y _parseArguments decodifica
+  URL-encoded antes del handler. No se detectó evidencia de fallo del parser.
+  Recolectar ambos encabezados, declarar enctype en los dos formularios y
+  rechazar tipos no admitidos (415) y campos requeridos ausentes (400).
+- Diagnóstico por código fijo para origen nulo/ajeno, token ausente/longitud/
+  diferencia/sesión, tipo POST, campos, interfaz/cliente/Host, NVS y operación
+  pendiente. Respuesta/serial no muestran token, campos ni cabeceras recibidas;
+  la aceptación muestra solo categoría de origen, csrf=ok y form=urlencoded.
+- El doble HAL anterior no podía detectar la semántica del navegador: ahora
+  los tests usan Chrome real con el HTML/cabeceras emitidos por el controlador,
+  y el doble respeta collectHeaders/hasArg y cambia token entre sesiones. Se
+  comprueban orígenes inválidos con token válido y tokens inválidos con origen
+  válido, sin debilitar las validaciones. Chrome es una prueba adicional local;
+  no se añade dependencia de runtime ni se garantiza su presencia en otros equipos.
+- No subir por USB automáticamente: entregar binario recompilado y comandos;
+  no hay puerto XIAO presente durante esta corrección. Conservar clave AP/NVS,
+  configuración de cámara y defaults Python. La aceptación física sigue abierta.

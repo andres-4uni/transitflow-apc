@@ -276,9 +276,11 @@ continúa informando error de cierre, como antes de la corrección.
 
 ## Firmware propio de cámara — 2026-10-21
 
-- Compilación y tests locales aprobados, **sin flashear ni validar hardware**.
-  El CameraWebServer anterior sí fue probado por el usuario con Wi-Fi/powerbank;
-  esa evidencia no certifica el firmware nuevo. Matriz física pendiente en
+- El usuario ya cargó la primera versión y comprobó AP/portal/escaneo del hotspot
+  del iPhone; Guardar fue rechazado y no se verificó conexión ni persistencia.
+  La corrección posterior de Referrer-Policy/Origin se compiló y verificó en el
+  Mac, **pendiente de nueva carga/prueba física**. El CameraWebServer anterior
+  sí fue probado por el usuario con Wi-Fi/powerbank. Matriz física pendiente en
   [la guía](../firmware/esp32-camera/README.md): casa, iPhone 16 Pro Max, arranque
   powerbank, LED/BOOT, cambios de red, ausencia, borrado, aislamiento y estabilidad.
 - `/stream` en 81 está confirmado en fuente. La prueba HTTP/OpenCV se ejecuta
@@ -311,3 +313,15 @@ continúa informando error de cierre, como antes de la corrección.
   del LED durante streaming estable. Reintentos HTTP no corrigen fallos de sensor.
   StreamSource Python conserva su contrato de terminar ante caída: reiniciar APC
   después de recuperar Wi-Fi; no hay reconexión transparente añadida al pipeline.
+- POST del portal: reproducido en Chrome local el origen null inducido por
+  no-referrer, corregida la política a same-origin sin aceptar null ni retirar
+  CSRF. No se conoce el encabezado exacto del intento físico previo; ese mecanismo
+  explica el rechazo local y encaja con el síntoma, pero la confirmación en ESP32
+  sigue pendiente. Reabrir la página tras upload; páginas de sesiones anteriores
+  se rechazan por token distinto. Los códigos de rechazo permiten confirmar la
+  causa sin capturar cabeceras/cuerpo ni publicar credenciales.
+- Los tests con Chrome usan datos sintéticos y el formulario/cabeceras del
+  controlador real, pero un servidor HTTP del Mac decodifica el POST. El parser
+  WebServer del core fue inspeccionado y compilado para ESP32, no ejecutado en
+  hardware durante esta corrección. Si Chrome/Chromium no está instalado, esos
+  dos tests adicionales se omiten; los tests C++ de validación se mantienen.
