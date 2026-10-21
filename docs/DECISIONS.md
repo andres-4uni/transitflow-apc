@@ -508,3 +508,15 @@
 - No subir por USB automáticamente: entregar binario recompilado y comandos;
   no hay puerto XIAO presente durante esta corrección. Conservar clave AP/NVS,
   configuración de cámara y defaults Python. La aceptación física sigue abierta.
+
+## Checkpoint de cámara y alcance mientras falta carcasa — 2026-10-21
+
+- Aceptar la confirmación física del usuario como evidencia atribuida: portal
+  corregido, hotspot, LED fijo, mDNS, capture y MJPEG con StreamSource, 60 frames
+  320×240 en 2,232 s / 26,88 FPS de recepción. El agente no repite ni infiere
+  detección/conteo/latencia a partir de esa medición. El rechazo de Guardar queda
+  superado por esta prueba posterior; los registros previos son históricos.
+- Conservar firmware validado, defaults y calibraciones existentes. Preparar
+  perfil/pipeline sobre HTTP sintético en el Mac; no abrir apc-metro.local ni
+  requerir pruebas físicas hasta disponer de carcasa. La precisión continúa
+  pendiente. Versionar el contexto solicitado, sin cambios locales ajenos.

@@ -276,16 +276,16 @@ continúa informando error de cierre, como antes de la corrección.
 
 ## Firmware propio de cámara — 2026-10-21
 
-- El usuario ya cargó la primera versión y comprobó AP/portal/escaneo del hotspot
-  del iPhone; Guardar fue rechazado y no se verificó conexión ni persistencia.
-  La corrección posterior de Referrer-Policy/Origin se compiló y verificó en el
-  Mac, **pendiente de nueva carga/prueba física**. El CameraWebServer anterior
-  sí fue probado por el usuario con Wi-Fi/powerbank. Matriz física pendiente en
+- Checkpoint físico comunicado por el usuario el 21-10: firmware propio instalado,
+  portal corregido conecta al hotspot, LED fijo, mDNS, capture y MJPEG funcionan.
+  check_stream/StreamSource recibe 60 frames 320×240 en 2,232 s (26,88 FPS),
+  **sin medir YOLO ni conteo**. Esperando carcasa: no se exigen nuevas pruebas
+  físicas ni se cambia firmware/calibración. Matriz de pruebas adicionales en
   [la guía](../firmware/esp32-camera/README.md): casa, iPhone 16 Pro Max, arranque
   powerbank, LED/BOOT, cambios de red, ausencia, borrado, aislamiento y estabilidad.
-- `/stream` en 81 está confirmado en fuente. La prueba HTTP/OpenCV se ejecuta
-  sobre MJPEG sintético con el formato oficial, no sobre OV3660 real. Falta medir
-  tasa recibida, latencia, calidad/encuadre APC, consumo, autonomía y temperatura.
+- `/stream` en 81 confirmado en fuente y por el usuario en OV3660 real. El agente
+  solo ejecutó transporte sintético en el Mac. Faltan tasa sostenida, inferencia
+  física, latencia, calidad/encuadre APC, consumo, autonomía y temperatura.
   QVGA inicial reproduce el ejemplo; no garantiza resolución suficiente para YOLO.
 - No se conoce versión/sketch exacto del firmware anterior grabado. Se conserva
   referencia oficial 3.3.12 reproducible, no copia binaria exacta de la flash.
@@ -306,7 +306,8 @@ continúa informando error de cierre, como antes de la corrección.
   garantizar su configuración. No se añaden cloud, UPnP, routing ni NAT.
 - Bonjour depende de multicast y del router; `.local` no garantiza descubrimiento.
   Serial y lista DHCP del router son los respaldos. Hotspot del iPhone requiere
-  Maximizar compatibilidad para 2,4 GHz; acceso Mac→ESP entre clientes pendiente.
+  Maximizar compatibilidad para 2,4 GHz; acceso Mac→ESP confirmado en el hotspot
+  del checkpoint. La prueba no garantiza disponibilidad en otras redes.
 - HTTP de streaming oficial sirve un lector prolongado por servidor: cerrar
   streaming del navegador antes de abrir APC. Cerrar un lector lento al entrar
   en setup puede tardar unos segundos por timeout; no afecta la temporización
@@ -316,8 +317,8 @@ continúa informando error de cierre, como antes de la corrección.
 - POST del portal: reproducido en Chrome local el origen null inducido por
   no-referrer, corregida la política a same-origin sin aceptar null ni retirar
   CSRF. No se conoce el encabezado exacto del intento físico previo; ese mecanismo
-  explica el rechazo local y encaja con el síntoma, pero la confirmación en ESP32
-  sigue pendiente. Reabrir la página tras upload; páginas de sesiones anteriores
+  explica el rechazo local. La prueba posterior del usuario confirma conexión y
+  video con la corrección. Reabrir la página tras upload; páginas de sesiones anteriores
   se rechazan por token distinto. Los códigos de rechazo permiten confirmar la
   causa sin capturar cabeceras/cuerpo ni publicar credenciales.
 - Los tests con Chrome usan datos sintéticos y el formulario/cabeceras del

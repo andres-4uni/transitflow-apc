@@ -1,10 +1,10 @@
 # Progreso
 
-**Firmware de cámara 2026-10-21, actualización:** usuario confirma AP/portal y
-escaneo del hotspot, pero Guardar fue rechazado. Conflicto no-referrer/Origin null
-reproducido en Chrome; corrección y diagnósticos compilados. **353 tests aprobados**;
-nueva carga USB y aceptación física pendientes. Problema físico aún abierto.
-Defaults y producción Python intactos. Detalle al final de este registro.
+**Checkpoint físico 2026-10-21:** usuario confirma firmware propio, portal Wi-Fi
+corregido, hotspot, LED fijo, mDNS, capture y MJPEG; **60 frames 320×240 en 2,232 s,
+26,88 FPS recibidos** (no YOLO). Rechazo Origin/CSRF superado. Integración de
+software en preparación; pruebas físicas de detección esperan la carcasa.
+No cambiar firmware ni calibración. Detalle al final de este registro.
 
 **Resumen 2026-10-10:** primera evaluación de demo3: **6 IN / 4 OUT frente a 6/6**,
 error agregado 16,67%. El archivo entrega 848×476 / 29,964 FPS, no 1280×720.
@@ -1022,3 +1022,28 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   repite Guardar. Confirmar post=accepted, intento de red, IP, LED fijo y cierre AP;
   luego panel/MJPEG/persistencia. Si falla, compartir solo código reject=... o
   estados sin secretos. **No se declara resuelto el problema físico.**
+
+## Checkpoint físico confirmado por el usuario — 2026-10-21
+
+- Nueva evidencia comunicada por el usuario, no ejecutada nuevamente por el agente:
+  Seeed XIAO ESP32S3 Sense + OV3660, firmware propio instalado, portal
+  APC-Metro-Setup funcional tras corregir Origin/CSRF, asociación al hotspot
+  del iPhone y LED amarillo fijo. Mac resuelve apc-metro.local; /capture y
+  http://apc-metro.local:81/stream funcionales.
+- check_stream.py: **60 frames, 320×240, 2,232 segundos, 26,88 FPS recibidos**.
+  Usa StreamSource real: recepción/decodificación, no medición de YOLO/ByteTrack,
+  conteo, dashboard, latencia ni tasa sostenida. Sin imágenes ni credenciales.
+- Este checkpoint supera el rechazo físico de Guardar y los pendientes anteriores
+  de mDNS/capture/stream en esa red. No extiende la validación a reinicios/NVS,
+  otras redes, BOOT, autonomía, temperatura ni precisión de conteo.
+- Releídos AGENTS, contexto, firmware README, README y código de fuente/config/
+  detector/demo/dashboard. Estado inicial 56b2f4d; se conservan cambios locales
+  preparados de AGENTS/default. El contexto de hardware no estaba versionado;
+  se incorpora expresamente al checkpoint solicitado, conservando el historial.
+- Antes de implementar: StreamSource ya abre HTTP/MJPEG mediante FFmpeg; no precisa
+  adaptador, cambio de transporte ni firmware. Tests existentes de fuentes,
+  firmware/check_stream y dashboard con solo loopback: **36 passed in 8.69s**.
+  No hubo acceso a la cámara ni nuevos resultados físicos.
+- **Restricción:** carcasa en preparación. Registrar checkpoint y preparar software/
+  comandos sin requerir detección física ni alterar calibración. Firmware protegido
+  contra cambios. Siguiente: perfil ESP32, verificación sintética y métricas separadas.

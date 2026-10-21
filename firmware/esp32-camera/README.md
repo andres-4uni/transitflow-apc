@@ -4,13 +4,17 @@ Firmware independiente basado en CameraWebServer oficial. La cámara transmite
 JPEG/MJPEG por Wi-Fi; OpenCV, YOLO, ByteTrack y conteo siguen ejecutándose en el
 Mac. No cambia código de producción Python ni defaults de conteo.
 
-**Estado 2026-10-21, tras primera prueba física:** el usuario cargó el firmware,
-accedió al AP/portal y vio el hotspot del iPhone en el escaneo. Guardar la red
-falló con «Solicitud inválida». Se reprodujo localmente un conflicto entre
-Referrer-Policy y Origin y se preparó la corrección de abajo. **La corrección
-todavía requiere carga USB y nueva prueba física; conexión/persistencia/streaming
-del firmware propio no se declaran validados.** La referencia oficial anterior
-sí tenía evidencia de Wi-Fi/powerbank; mantener esa distinción.
+**Checkpoint físico confirmado por el usuario — 2026-10-21:** firmware propio
+instalado; portal Wi-Fi funciona tras corregir Origin/CSRF, conecta al hotspot
+del iPhone y LED amarillo queda fijo. Desde el Mac resuelven `apc-metro.local`,
+`/capture` y `http://apc-metro.local:81/stream`. `check_stream.py` recibió **60
+frames, 320×240, 2,232 s, 26,88 FPS**. Son FPS de recepción, no de YOLO/conteo.
+Evidencia textual en [contexto de hardware](../../docs/APC_Metro_ESP32_Contexto_Hardware.md).
+
+**Esperando carcasa:** conservar este firmware validado. No recompilar/subir ni
+modificar calibración para preparar el software; detección física, estabilidad,
+persistencia tras reinicio y precisión APC siguen pendientes. El agente no repitió
+las pruebas del checkpoint ni abrió la cámara en esta etapa.
 
 ## Qué se conserva
 
@@ -21,7 +25,7 @@ sí tenía evidencia de Wi-Fi/powerbank; mantener esa distinción.
   OV3660 (vflip=1, brillo=1, saturación=-2), QVGA inicial y Wi-Fi sin sleep.
 - Panel oficial en `http://<IP>/`, controles y captura; stream directo en
   **`http://<IP>:81/stream`**, sin requerir pulsar Start Stream. La ruta/puerto
-  están verificados en fuente y compilación, pendientes de prueba física.
+  están confirmados también por la prueba física del usuario del 21.
   El panel permite VGA/SVGA u otra resolución sin cambiar el contrato de APC.
 
 `vendor/` conserva los originales sin claves y hashes verificables; leer su
@@ -87,7 +91,11 @@ recuperación de carga mantener BOOT, pulsar/soltar RESET, soltar BOOT y buscar
 el puerto del cargador. Subir y después pulsar RESET con BOOT libre.
 El procedimiento USB de recuperación siempre permanece disponible.
 
-### Actualizar por el rechazo de «Guardar y conectar»
+### Historial de la corrección de «Guardar y conectar» (ya comprobada)
+
+El usuario confirmó después de actualizar que Guardar y conectar funciona.
+Las instrucciones siguientes quedan como referencia; no volver a subir firmware
+para integrar APC ni mientras falte la carcasa.
 
 El portal anterior enviaba `Referrer-Policy: no-referrer`. Para un POST HTML de
 navegación, el [estándar Fetch](https://fetch.spec.whatwg.org/#append-a-request-origin-header)
@@ -149,7 +157,8 @@ nunca el cuerpo POST, token, SSID o contraseñas. No hace falta capturar tráfic
 
 Los diagnósticos registran **códigos fijos**, sin valores de cabeceras, campos ni
 tokens. Las pruebas locales ya no reproducen el rechazo con la política nueva;
-**el problema físico permanece abierto hasta repetir Guardar en el ESP32**.
+**el rechazo físico de Guardar quedó resuelto según el checkpoint del usuario**,
+con asociación al hotspot y video directo confirmados.
 
 Para volver a la referencia oficial si la aceptación falla: ejecutar `manage.py
 reference`, editar **solo** `.build/reference/CameraWebServer/CameraWebServer.ino`
@@ -226,7 +235,8 @@ esos errores se informan por serial, con reintento HTTP cada 10 s.
 GPIO21/LED activo LOW, BOOT/GPIO0 y GPIO21 como CS microSD. No usar tarjeta ni
 inicializar SD/SPI en este firmware; el LED conmutaría su CS. La cámara OV3660
 usa otros pines según el mapa oficial XIAO preservado. El LED rojo de carga es
-independiente. Asignación verificada documentalmente; LED/BOOT físicos pendientes.
+independiente. LED fijo conectado confirmado físicamente; patrones de parpadeo
+y recuperación/borrado por BOOT aún no certificados por este checkpoint.
 
 ## Encontrar la cámara desde el Mac
 
@@ -286,12 +296,14 @@ para este encuadre en una tarea posterior; esto no valida precisión de conteo.
 
 ## Pruebas de aceptación que requieren la placa
 
-**Todas pendientes con el firmware nuevo.** Registrar resultado sin SSID, claves,
-imágenes ni rostros. Usar una escena sin personas para verificar transporte.
+**Checkpoint parcial confirmado:** portal, conexión al hotspot, LED fijo, mDNS,
+capture y 60 frames MJPEG. La matriz conserva pruebas adicionales pendientes;
+no se requieren ahora, mientras falte la carcasa. Registrar resultados sin SSID,
+claves, imágenes ni rostros.
 
 | Prueba | Procedimiento y resultado exigido |
 | --- | --- |
-| Casa | Flash USB; AP protegido, acceso IP, elegir red 2,4 GHz; LED fijo, IP serial; panel y 60 frames OpenCV. AP/escaneo observados por usuario con hotspot; Guardar rechazado, corrección pendiente de prueba |
+| Casa | Red doméstica pendiente; con hotspot ya confirmados portal, asociación, LED fijo y 60 frames OpenCV |
 | Reinicio/powerbank | Desconectar USB, encender powerbank con BOOT libre; sin portal si red guardada disponible; repetir OpenCV; comprobar varios reinicios |
 | Cambio de red | Con video activo mantener BOOT 4 s y soltar; video se cierra, LED rápido, portal AP; nueva red conecta y persiste tras apagar |
 | Clave incorrecta | Probar deliberadamente clave errónea; tras 25 s reaparece portal; reiniciar y comprobar que aún intenta la red anterior |
@@ -311,7 +323,8 @@ portal y su clave; después reconectar el Mac al hotspot y repetir panel/OpenCV.
 El iPhone ofrece la red; no necesita unirse al AP de la cámara simultáneamente.
 Repetir apagado/encendido del hotspot y de la powerbank. Si la cámara obtiene IP
 pero el Mac no la alcanza, revisar aislamiento de clientes; no asumir compatibilidad
-por la sola asociación Wi-Fi. No se ha comprobado aquí ese acceso entre clientes.
+por la sola asociación Wi-Fi. Acceso Mac→ESP confirmado por el usuario en el
+hotspot probado mediante capture/MJPEG; no certifica todos los hotspots.
 
 Pruebas locales automatizadas desde la raíz:
 

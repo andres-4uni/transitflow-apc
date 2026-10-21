@@ -8,8 +8,10 @@ solo telemetría numérica; el video local anotado es una opción de demostraci�
 
 Firmware independiente para **XIAO ESP32S3 Sense + OV3660**, con configuración
 Wi-Fi por AP protegido, NVS y LED: [guía de cámara](firmware/esp32-camera/README.md).
-Compilado y probado con hardware simulado; la carga y aceptación física del nuevo
-firmware siguen pendientes. No modifica los defaults ni el pipeline de conteo.
+Checkpoint físico del usuario (21-10-2026): portal corregido, hotspot, LED fijo,
+mDNS, capture y MJPEG confirmados; **26,88 FPS de recepción**, 60 frames 320×240.
+Detección/conteo físicos pendientes de la carcasa; conservar el firmware validado.
+No modifica los defaults ni la calibración del contador.
 
 ## Instalación (Python 3.11)
 
