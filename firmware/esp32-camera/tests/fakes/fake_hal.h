@@ -2,6 +2,7 @@
 // Dobles HAL: ejecutan el controlador real en el Mac; no simulan radio ni NVS física.
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdint>
@@ -24,6 +25,18 @@ class String {
   String &operator+=(const String &value) { text += value.text; return *this; }
   String &operator+=(char value) { text += value; return *this; }
   bool equalsConstantTime(const String &value) const { return text == value.text; }
+  int indexOf(char value) const { auto position=text.find(value); return position==std::string::npos ? -1 : int(position); }
+  String substring(size_t begin, size_t end) const { return text.substr(begin, end-begin); }
+  void trim() {
+    auto begin=text.find_first_not_of(" \r\n\t"), end=text.find_last_not_of(" \r\n\t");
+    text=begin==std::string::npos ? "" : text.substr(begin, end-begin+1);
+  }
+  bool equalsIgnoreCase(const String &value) const {
+    if (text.size()!=value.text.size()) return false;
+    for (size_t i=0; i<text.size(); ++i)
+      if (std::tolower(static_cast<unsigned char>(text[i]))!=std::tolower(static_cast<unsigned char>(value.text[i]))) return false;
+    return true;
+  }
   void toCharArray(char *out, size_t size) const { std::snprintf(out, size, "%s", c_str()); }
   friend bool operator==(const String &left, const String &right) { return left.text == right.text; }
   friend bool operator!=(const String &left, const String &right) { return !(left == right); }
@@ -51,6 +64,7 @@ inline int status = 0, connectCalls = 0, videoStarts = 0, legacyErases = 0;
 inline String requestedSSID, requestedKey;
 inline std::string serial;
 inline std::map<std::string, std::vector<uint8_t>> nvs;
+inline uint8_t entropy = 0;
 }
 constexpr int LOW=0, HIGH=1, OUTPUT=2, INPUT_PULLUP=3;
 constexpr int WIFI_STA=1, WIFI_AP_STA=3, WIFI_OFF=0, WL_CONNECTED=3, WIFI_SCAN_RUNNING=-1;
@@ -93,14 +107,18 @@ class WebServer {
   static inline WebServer *latest = nullptr;
   bool active = false;
   int code = 0;
-  String body, host{"192.168.4.1"}, origin;
+  String body, host{"192.168.4.1"}, origin, contentType{"application/x-www-form-urlencoded"};
+  std::vector<std::string> collected;
   std::map<String, String> arguments;
   std::map<std::string, std::string> headers;
   FakeClient connection;
   std::map<std::pair<std::string,int>, std::function<void()>> handlers;
   std::function<void()> missing;
   WebServer(IPAddress ip, int port) { assert(ip == IPAddress(192,168,4,1) && port == 80); latest = this; }
-  void collectHeaders(const char **, int) {}
+  void collectHeaders(const char **names, int count) {
+    collected.clear();
+    for (int i=0; i<count; ++i) collected.emplace_back(names[i]);
+  }
   void on(const char *path, int method, std::function<void()> callback) { handlers[{path,method}] = callback; }
   void onNotFound(std::function<void()> callback) { missing = callback; }
   void begin() { assert(fake::ap && !fake::video); active = true; }
@@ -108,10 +126,14 @@ class WebServer {
   void handleClient() {}
   FakeClient &client() { return connection; }
   String hostHeader() { return host; }
-  String header(const char *) { return origin; }
-  String arg(const char *key) { return arguments[key]; }
+  String header(const char *key) {
+    if (std::find(collected.begin(),collected.end(),key)==collected.end()) return String();
+    return std::strcmp(key,"Origin")==0 ? origin : contentType;
+  }
+  bool hasArg(const char *key) { return arguments.find(key)!=arguments.end(); }
+  String arg(const char *key) { auto found=arguments.find(key); return found==arguments.end() ? String() : found->second; }
   void sendHeader(const char *key, const String &value) { headers[key] = value.text; }
-  void send(int status, const char *, const String &value) { code=status; body=value; }
+  void send(int status, const char *type, const String &value) { code=status; body=value; headers["Content-Type"]=type; }
   int request(const char *path, int method = HTTP_GET) {
     assert(active); code=0; auto found=handlers.find({path,method});
     if (found == handlers.end()) missing(); else found->second();
@@ -149,7 +171,7 @@ struct FakeMDNS {
   void addServiceTxt(const char *, const char *, const char *, const char *) {}
 };
 inline FakeMDNS MDNS;
-inline void esp_fill_random(void *data, size_t size) { std::memset(data, 0xab, size); }
+inline void esp_fill_random(void *data, size_t size) { std::memset(data, ++fake::entropy, size); }
 using esp_err_t = int;
 constexpr int ESP_OK=0, WIFI_STORAGE_FLASH=1, WIFI_STORAGE_RAM=0, WIFI_IF_STA=0;
 struct wifi_config_t { char unused[100]; };

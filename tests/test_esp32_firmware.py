@@ -1,12 +1,14 @@
 """Verificación local del firmware sin ESP32 ni credenciales de una red real."""
 import importlib.util
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from time import sleep
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -38,7 +40,8 @@ def test_native_policy(tmp_path):
     subprocess.run([str(output)], check=True)
 
 
-def test_network_controller_with_fake_hardware(manager, tmp_path):
+@pytest.fixture
+def controller_binary(manager, tmp_path):
     compiler = shutil.which("c++") or shutil.which("clang++") or shutil.which("g++")
     assert compiler, "Se requiere compilador C++"
     sketch = manager.prepare(tmp_path / "CameraWebServer")
@@ -47,7 +50,86 @@ def test_network_controller_with_fake_hardware(manager, tmp_path):
                     "-I", str(ROOT / "tests/fakes"), "-I", str(sketch),
                     str(ROOT / "tests/network_test.cpp"), str(sketch / "network_setup.cpp"),
                     "-o", str(output)], check=True)
-    subprocess.run([str(output)], check=True)
+    return output
+
+
+def test_network_controller_with_fake_hardware(controller_binary):
+    subprocess.run([str(controller_binary)], check=True)
+
+
+@pytest.mark.parametrize("legacy_policy", [True, False], ids=["reproduce-no-referrer", "portal-current-policy"])
+def test_browser_form_origin_and_encoding(controller_binary, tmp_path, legacy_policy):
+    # Chrome real, sin perfil personal, usa el formulario/cabeceras del controlador.
+    # No ejecuta WebServer/driver de radio: esa parte sigue requiriendo la placa.
+    browser = shutil.which("chromium") or shutil.which("google-chrome")
+    mac_browser = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+    browser = browser or (str(mac_browser) if mac_browser.is_file() else None)
+    if not browser:
+        pytest.skip("Prueba adicional requiere Chrome/Chromium instalado")
+    rendered = subprocess.run([str(controller_binary), "--render-portal"], check=True, capture_output=True).stdout.decode()
+    headers_text, page = rendered.split("\r\n\r\n", 1)
+    headers = dict(line.split(": ", 1) for line in headers_text.split("\r\n"))
+    tokens = re.findall(r'name="token" value="([0-9a-f]{32})"', page)
+    assert len(tokens) == 2 and tokens[0] == tokens[1]
+    policy = "no-referrer" if legacy_policy else headers["Referrer-Policy"]
+    page = page.replace("</html>", """<script>
+const form=document.querySelector('form[action="/save"]');
+form.elements.ssid.value='Red sintética + & = % ñ';
+form.elements.password.value='prueba+&=%123';
+form.requestSubmit();
+</script></html>""")
+    observed = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            if self.path == "/scan":
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b"[]")
+                return
+            for name, value in headers.items():
+                self.send_header(name, policy if name == "Referrer-Policy" else value)
+            self.end_headers()
+            self.wfile.write(page.encode())
+
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode()
+            observed.append((self.path, self.headers.get("Origin"), self.headers.get("Content-Type"),
+                             parse_qs(body, keep_blank_values=True)))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<p>Formulario recibido</p>")
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+    try:
+        result = subprocess.run([browser, "--headless", "--no-first-run", "--no-default-browser-check",
+                                 "--disable-background-networking", "--disable-component-update", "--disable-sync",
+                                 "--disable-extensions", f"--user-data-dir={tmp_path / 'chrome-profile'}",
+                                 "--dump-dom", "--virtual-time-budget=1500", origin + "/"],
+                                capture_output=True, timeout=30)
+        assert result.returncode == 0, "Chrome terminó con error; no mostrar DOM/tokens en logs"
+        assert len(observed) == 1
+        path, submitted_origin, media_type, fields = observed[0]
+        assert path == "/save"
+        assert submitted_origin == ("null" if legacy_policy else origin)
+        assert media_type == "application/x-www-form-urlencoded"
+        assert len(fields["token"][0]) == 32
+        token_matches = fields["token"] == [tokens[0]]
+        assert token_matches, "El formulario debe conservar el token completo"
+        assert fields["ssid"] == ["Red sintética + & = % ñ"]
+        assert fields["password"] == ["prueba+&=%123"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
 
 
 def test_secret_is_private_and_not_replaced(manager, capsys):

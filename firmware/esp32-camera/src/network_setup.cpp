@@ -53,8 +53,8 @@ void NetworkSetup::begin() {
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
   WiFi.setHostname("apc-metro");  // Antes de iniciar Wi-Fi, como exige el core.
-  const char *headers[] = {"Origin"};
-  portal_.collectHeaders(headers, 1);
+  const char *headers[] = {"Origin", "Content-Type"};
+  portal_.collectHeaders(headers, 2);
   portal_.on("/", HTTP_GET, [this]() { showPortal(); });
   portal_.on("/scan", HTTP_GET, [this]() { scanNetworks(); });
   portal_.on("/save", HTTP_POST, [this]() { saveRequest(); });
@@ -222,26 +222,50 @@ void NetworkSetup::tick() {
 void NetworkSetup::reply(int code, const String &body, const char *type) {
   portal_.sendHeader("Cache-Control", "no-store");
   portal_.sendHeader("X-Content-Type-Options", "nosniff");
-  portal_.sendHeader("Referrer-Policy", "no-referrer");
+  // no-referrer convierte Origin a "null" en POST de formulario (Fetch).
+  // same-origin conserva el origen local y no envía Referer a otros sitios.
+  portal_.sendHeader("Referrer-Policy", "same-origin");
   portal_.sendHeader("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'; form-action 'self'");
   portal_.send(code, type, body);
+}
+
+bool NetworkSetup::rejectRequest(int code, const char *reason) {
+  // reason siempre es un código estático: nunca registrar cabeceras/cuerpo.
+  Serial.printf("[portal] reject=%s\n", reason);
+  reply(code, String("Solicitud rechazada [") + reason +
+        "]. Recargar http://192.168.4.1/ y enviar de nuevo.");
+  return false;
 }
 
 bool NetworkSetup::allowed(bool mutation) {
   String host = portal_.hostHeader();
   IPAddress remote = portal_.client().remoteIP();
-  bool apClient = remote[0] == 192 && remote[1] == 168 && remote[2] == 4 && remote[3] > 1;
-  if (!portalActive_ || portal_.client().localIP() != apIP_ || !apClient ||
-      (host != "192.168.4.1" && host != "192.168.4.1:80")) {
-    reply(403, "Acceso solo desde el AP y su IP de configuración.");
-    return false;
-  }
+  bool apClient = remote[0] == 192 && remote[1] == 168 && remote[2] == 4 && remote[3] > 1 && remote[3] < 255;
+  if (!portalActive_) return rejectRequest(403, "ap_inactive");
+  if (portal_.client().localIP() != apIP_) return rejectRequest(403, "ap_interface");
+  if (!apClient) return rejectRequest(403, "ap_client");
+  if (host != "192.168.4.1" && host != "192.168.4.1:80") return rejectRequest(403, "host");
+  if (!mutation) return true;
+
   String origin = portal_.header("Origin");
-  if (mutation && ((!origin.isEmpty() && origin != "http://192.168.4.1" && origin != "http://192.168.4.1:80") ||
-                   !csrfToken_.equalsConstantTime(portal_.arg("token")))) {
-    reply(403, "Solicitud inválida; recargar portal.");
-    return false;
-  }
+  if (origin == "null") return rejectRequest(403, "origin_null");
+  if (!origin.isEmpty() && origin != "http://192.168.4.1" && origin != "http://192.168.4.1:80")
+    return rejectRequest(403, "origin_foreign");
+
+  // Los formularios usan el parser URL-encoded del core; no JSON/plaintext.
+  String contentType = portal_.header("Content-Type");
+  int separator = contentType.indexOf(';');
+  if (separator >= 0) contentType = contentType.substring(0, separator);
+  contentType.trim();
+  if (!contentType.equalsIgnoreCase("application/x-www-form-urlencoded"))
+    return rejectRequest(415, "post_type");
+
+  if (csrfToken_.length() != 32) return rejectRequest(403, "csrf_session");
+  if (!portal_.hasArg("token")) return rejectRequest(403, "csrf_missing");
+  String submittedToken = portal_.arg("token");
+  if (submittedToken.length() != 32) return rejectRequest(403, "csrf_length");
+  if (!csrfToken_.equalsConstantTime(submittedToken)) return rejectRequest(403, "csrf_mismatch");
+  Serial.printf("[portal] post=accepted origin=%s csrf=ok form=urlencoded\n", origin.isEmpty() ? "absent" : "local");
   return true;
 }
 
@@ -252,7 +276,7 @@ void NetworkSetup::showPortal() {
 <title>APC Metro · Wi-Fi</title><style>body{font:18px system-ui;max-width:34em;margin:2em auto;padding:1em}input,button{font:inherit;padding:.6em;margin:.4em 0;box-sizing:border-box;width:100%}</style>
 <h1>APC Metro</h1><p>Configurar red Wi-Fi de 2,4 GHz. El video está detenido.</p>
 <p id="status">Elegir red o escribir un SSID oculto. El AP expira en 10 minutos.</p>
-<form action="/save" method="post" autocomplete="off">
+<form action="/save" method="post" enctype="application/x-www-form-urlencoded" autocomplete="off">
 <input type="hidden" name="token" value=")HTML";
   page += csrfToken_;
   page += R"HTML("><label>Red (SSID)<input name="ssid" list="networks" maxlength="32" required autocomplete="off"></label>
@@ -260,7 +284,7 @@ void NetworkSetup::showPortal() {
 <p>Dejar la contraseña vacía solo si la red es abierta. No se admite Wi-Fi empresarial.</p>
 <button>Guardar y conectar</button></form>
 <p>Al conectar, este AP desaparece. Volver a la red elegida en el Mac y buscar la cámara.</p>
-<details><summary>Restablecer redes guardadas</summary><form action="/forget" method="post">
+<details><summary>Restablecer redes guardadas</summary><form action="/forget" method="post" enctype="application/x-www-form-urlencoded">
 <input type="hidden" name="token" value=")HTML";
   page += csrfToken_;
   page += R"HTML("><button>Borrar credenciales Wi-Fi</button></form></details>
@@ -285,18 +309,19 @@ void NetworkSetup::scanNetworks() {
 
 void NetworkSetup::saveRequest() {
   if (!allowed(true)) return;
-  if (!storageReady_) { reply(503, "NVS no disponible; revisar serial."); return; }
-  if (policy_.state != apc::State::Setup || pendingConnect_ || pendingForget_) { reply(409, "Operación en curso."); return; }
+  if (!storageReady_) { rejectRequest(503, "nvs_unavailable"); return; }
+  if (policy_.state != apc::State::Setup || pendingConnect_ || pendingForget_) { rejectRequest(409, "busy"); return; }
+  if (!portal_.hasArg("ssid") || !portal_.hasArg("password")) { rejectRequest(400, "fields_missing"); return; }
   String name = portal_.arg("ssid"), key = portal_.arg("password");
   apc::Credentials value;
   // No truncar ni modificar espacios de SSID/clave. Arduino String cuenta bytes UTF-8.
   if (name.length() > 32 || key.length() > 63 ||
       memchr(name.c_str(), 0, name.length()) || memchr(key.c_str(), 0, key.length())) {
-    reply(400, "Longitud o caracteres inválidos."); return;
+    rejectRequest(400, "credentials_encoding"); return;
   }
   name.toCharArray(value.ssid, sizeof(value.ssid));
   key.toCharArray(value.password, sizeof(value.password));
-  if (!apc::validCredentials(value)) { reply(400, "SSID de 1–32 bytes; clave ASCII de 8–63 caracteres o vacía."); return; }
+  if (!apc::validCredentials(value)) { rejectRequest(400, "credentials_format"); return; }
   candidate_ = value;
   pendingConnect_ = true;
   requestAt_ = millis();
@@ -305,8 +330,8 @@ void NetworkSetup::saveRequest() {
 
 void NetworkSetup::forgetRequest() {
   if (!allowed(true)) return;
-  if (!storageReady_) { reply(503, "NVS no disponible."); return; }
-  if (pendingConnect_ || pendingForget_ || policy_.state != apc::State::Setup) { reply(409, "Operación en curso."); return; }
+  if (!storageReady_) { rejectRequest(503, "nvs_unavailable"); return; }
+  if (pendingConnect_ || pendingForget_ || policy_.state != apc::State::Setup) { rejectRequest(409, "busy"); return; }
   pendingForget_ = true;
   requestAt_ = millis();
   reply(202, "<meta charset='utf-8'><h1>Borrado solicitado</h1><p>El resultado se informa por serial. Reconectar al AP y recargar el portal. La clave de configuración se conserva.</p>");

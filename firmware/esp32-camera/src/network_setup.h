@@ -28,6 +28,7 @@ class NetworkSetup {
   void stopVideo();
   bool forget();
   bool allowed(bool mutation = false);
+  bool rejectRequest(int code, const char *reason);
   void reply(int code, const String &body, const char *type = "text/html; charset=utf-8");
   void showPortal();
   void scanNetworks();
