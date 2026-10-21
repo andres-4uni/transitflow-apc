@@ -91,6 +91,83 @@ a esa vuelta. También se configuran con `source.realtime` y `source.loop`.
 Si el procesamiento es lento, la reproducción tarda más; no se descartan frames
 para recuperar retraso. Ambos flags requieren una fuente `file`.
 
+## ESP32 inalámbrico — software preparado, esperando carcasa
+
+El checkpoint del 21-10-2026 confirma recepción desde la XIAO ESP32S3 Sense +
+OV3660 mediante el **StreamSource existente**: 60 frames 320×240 en 2,232 s,
+26,88 FPS recibidos. [Evidencia atribuida al usuario](docs/APC_Metro_ESP32_Contexto_Hardware.md).
+No son FPS de YOLO, precisión de conteo ni estabilidad prolongada. El firmware
+validado se conserva. **No hacen falta pruebas físicas ahora ni cambiar calibración.**
+
+Al tener la carcasa y retomar la demo, desde la raíz del repositorio:
+
+1. Encender la cámara con su alimentación habitual y activar el hotspot del iPhone
+   ya configurado, con Maximizar compatibilidad. Conectar el Mac a ese mismo hotspot.
+   Esperar LED amarillo fijo. No volver a flashear ni abrir setup si la red sigue
+   guardada. Cerrar el stream del navegador y cualquier otro lector de la cámara.
+2. Con pesos locales en `models/yolov8n.pt`, ejecutar en la Terminal 1:
+
+   ```sh
+   .venv/bin/python scripts/run_demo.py --config configs/esp32-demo.yaml --metrics
+   ```
+
+3. En la Terminal 2, usar el mismo perfil:
+
+   ```sh
+   APC_CONFIG=configs/esp32-demo.yaml .venv/bin/python -m streamlit run dashboard/app.py --server.address 127.0.0.1 --server.port 8501
+   ```
+
+4. Abrir **http://127.0.0.1:8501** en el Mac. Puertos 8765/8501 deben estar libres;
+   no cerrar procesos ajenos para liberarlos. Ctrl+C termina cada proceso.
+
+El perfil optativo muestra cajas, IDs y estelas, junto con IN/OUT y ocupación.
+YOLOv8n y ByteTrack corren en CPU en el **Mac**. Video anotado/JPEG solo en RAM
+y loopback, sin grabación. `visualization.stream: false` en este perfil desactiva
+su video; no se toca default.yaml. La publicación del overlay está limitada a
+10 FPS, independientemente de captura/inferencia.
+
+No hay calibración física aplicada: el perfil usa CountingConfig sin ajustes y
+oculta línea/banda para no presentar una geometría validada. Los conteos son
+provisionales. **No mover ni guardar controles de calibración en esta etapa**;
+siguen disponibles para una tarea posterior con montaje fijo y referencia manual.
+
+Si falla mDNS, copiar el perfil a `data/esp32-demo.yaml` (ignorado), sustituir solo
+`source.url` por `http://<IP_ACTUAL>:81/stream` y usar esa ruta en **ambas** terminales.
+La IP se obtiene por serial o DHCP, sin escanear la red. `source.width/height` no
+negocian resolución del MJPEG; manda el frame recibido. No añadir `--realtime`
+ni `--loop` a una fuente stream. Ante caída de red APC termina como antes:
+recuperar Wi-Fi y reiniciar el productor; el dashboard puede permanecer abierto.
+
+`--metrics` es optativo para stream/webcam: imprime periódicamente JSON numérico
+en stderr y lo incluye en el resumen final de stdout, sin IDs, imágenes o URLs:
+
+| Métrica | Significado |
+| --- | --- |
+| `capture_fps` | Recepción/decodificación en el hilo de captura, estimada por diferencias de índice y timestamp de frames observados; incluye reemplazos de cola |
+| `inference_fps` | Inferencias completadas por segundo de pared, incluida espera por la fuente; no multiplica por vid_stride |
+| `yolo_inference_ms_mean` | Tiempo medio de la etapa YOLO reportado por Ultralytics, separado de captura y ByteTrack |
+| `bytetrack_ms_mean` | Tiempo del callback de ByteTrack ya instrumentado; primera llamada puede ser cero |
+| `queue_replacements` / `stride_skipped_frames` | Reemplazos entre los extremos observados de cola y omisiones por stride, separados |
+
+Ventana desde el primer frame observado, con arranque de inferencia incluido;
+se excluye el cierre de servicios. No es benchmark con warmup ni latencia extremo
+a extremo. Capture usa timestamp Unix: un salto no creciente devuelve `null`;
+saltos de reloj hacia adelante también pueden sesgar la tasa. No equivale al FPS
+del sensor ni al CAP_PROP_FPS nominal. El FPS del dashboard mantiene su significado
+anterior de promedio del pipeline; la telemetría/API no cambia.
+
+Cuando se retomen pruebas se puede medir recepción sola, **por separado**:
+
+```sh
+.venv/bin/python firmware/esp32-camera/tools/check_stream.py apc-metro.local --frames 60
+```
+
+Cerrar ese lector antes de iniciar APC. Pendientes tras la carcasa: personas
+reales con cajas/IDs, FPS de captura/inferencia bajo carga, latencia/estabilidad
+y encuadre. Validar/calibrar conteos con referencia manual será una etapa aparte.
+Las pruebas de software usan MJPEG sintético en el Mac, incluyendo YOLO/ByteTrack
+reales y AppTest contra la API real; no se conectan al ESP32 ni certifican recall.
+
 ## Nuevo montaje fijo: perfil de diagnóstico
 
 `configs/door-demo.yaml` usa **data/demo2.mov**: 1080×1920, 29,793 FPS,

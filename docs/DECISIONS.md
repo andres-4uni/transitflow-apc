@@ -520,3 +520,28 @@
   perfil/pipeline sobre HTTP sintético en el Mac; no abrir apc-metro.local ni
   requerir pruebas físicas hasta disponer de carcasa. La precisión continúa
   pendiente. Versionar el contexto solicitado, sin cambios locales ajenos.
+
+## Integración de software ESP32 sin cambiar transporte — 2026-10-21
+
+- Reutilizar StreamSource/FFmpeg/create_source y el productor/overlay/publicador/
+  dashboard existentes. La prueba física de check_stream ya recorrió esa fuente;
+  HTTP sintético confirma el pipeline sin nuevo adaptador ni reconexión especial.
+  No tocar firmware, configuración de conteo, algoritmo ni dependencias.
+- Perfil optativo configs/esp32-demo.yaml, endpoint mDNS y sustitución por IP en
+  copia local. YOLOv8n/ByteTrack/320/.35/stride1 y CountingConfig predeterminados,
+  sin copiar calibraciones históricas. Cajas/IDs/estelas y video en loopback;
+  ocultar línea/banda sin ajustar su geometría. Conteos provisionales visibles.
+- Los FPS previos mezclan fuente/pipeline: añadir únicamente --metrics optativo
+  a run_demo para stream/webcam, sin cambiar esquema de telemetría ni dashboard.
+  Acumuladores numéricos con índices/timestamps ya emitidos por ThreadedSource:
+  estimar recepción por delta índice/tiempo, incluyendo reemplazos entre extremos;
+  inferencias completadas por pared monotónica y tiempos ya expuestos por detector.
+  No instrumentar ni modificar captura/tracking. Sin warmup, primera inferencia
+  incluida y sin cierre de servicios; documentar sesgo de reloj Unix y colas.
+- No usar el benchmark de archivos como si midiera toda la captura Wi-Fi. Mantener
+  check_stream como medición aislada y --metrics durante APC, con un único lector
+  de cámara. max_fps del overlay limita publicación, no captura/inferencia.
+- Verificación local: MJPEG multipart de formato Espressif, 320×240 sintético,
+  CPU YOLO/ByteTrack reales sobre negro (sin afirmar personas detectadas), y otra
+  prueba con respuestas de tracking simuladas para cruces/cajas/estelas conocidos,
+  API y AppTest reales. No escribir frames ni consultar la cámara física.

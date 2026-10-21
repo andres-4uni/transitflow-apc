@@ -276,8 +276,10 @@ están incluidos en el tiempo: no es benchmark de inferencia ni latencia ni una
 promesa de >20 FPS con esta cámara. No muestra ni guarda frames y solo acepta
 hosts locales. No ejecutar capturas de tráfico del POST Wi-Fi ni guardarlas.
 
-Para APC, crear un perfil local ignorado, por ejemplo `data/esp32-demo.yaml`,
-partiendo del perfil que se quiera calibrar, y sustituir únicamente `source` por:
+Para APC ya existe **`configs/esp32-demo.yaml`**, optativo, con cajas/IDs/estelas
+y dashboard local. Ver [comandos de demo](../../README.md#esp32-inalámbrico--software-preparado-esperando-carcasa).
+No cambiar firmware ni calibración mientras falte la carcasa. El bloque de fuente
+del perfil es:
 
 ```yaml
 source:
@@ -288,11 +290,11 @@ source:
   read_timeout_ms: 3000
 ```
 
-Ejecutar `scripts/run_demo.py --config data/esp32-demo.yaml` con la venv.
-Recordar que las rutas relativas del YAML se resuelven desde el padre de su
-carpeta: desde `data/` siguen apuntando a la raíz. Usar `visualization.stream=false`
-y `debug.show_video=false` para la prueba numérica. Recalibrar línea/sentido/áreas
-para este encuadre en una tarea posterior; esto no valida precisión de conteo.
+Para sustituir hostname por IP, copiar el perfil a `data/esp32-demo.yaml` (ignorado)
+y cambiar solo la URL, usando la copia en productor y dashboard. Las rutas desde
+`configs/` o `data/` se resuelven respecto de la raíz. El perfil activa video local
+solo por selección explícita; stream=false lo desactiva. Mantener geometría sin
+ajustes hasta la etapa posterior de calibración; no se valida precisión de conteo.
 
 ## Pruebas de aceptación que requieren la placa
 

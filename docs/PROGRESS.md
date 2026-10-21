@@ -3,7 +3,7 @@
 **Checkpoint físico 2026-10-21:** usuario confirma firmware propio, portal Wi-Fi
 corregido, hotspot, LED fijo, mDNS, capture y MJPEG; **60 frames 320×240 en 2,232 s,
 26,88 FPS recibidos** (no YOLO). Rechazo Origin/CSRF superado. Integración de
-software en preparación; pruebas físicas de detección esperan la carcasa.
+software preparada, **365 tests aprobados**; detección física espera la carcasa.
 No cambiar firmware ni calibración. Detalle al final de este registro.
 
 **Resumen 2026-10-10:** primera evaluación de demo3: **6 IN / 4 OUT frente a 6/6**,
@@ -1047,3 +1047,52 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 - **Restricción:** carcasa en preparación. Registrar checkpoint y preparar software/
   comandos sin requerir detección física ni alterar calibración. Firmware protegido
   contra cambios. Siguiente: perfil ESP32, verificación sintética y métricas separadas.
+
+## Integración ESP32 preparada en software — 2026-10-21
+
+- Checkpoint documental creado primero en **8154445**, sin incluir cambios
+  preparados de AGENTS/default. Firmware validado sin modificar ni recompilar;
+  tampoco se ejecutó monitor, upload, resolución mDNS ni acceso a la cámara.
+  Carcasa pendiente respetada: no se solicitan nuevas pruebas físicas ahora.
+- Confirmado que StreamSource/FFmpeg ya soporta el MJPEG requerido; se reutilizan
+  fuente, selección, contador, overlay, publisher y dashboard. Ningún cambio en
+  fuentes anteriores, firmware, calibración, geometría, filtros, tracker o dependencias.
+- Nuevo perfil optativo `configs/esp32-demo.yaml`, URL
+  `http://apc-metro.local:81/stream`, timeouts existentes, YOLOv8n CPU/ByteTrack
+  320/.35/stride1. Cajas/IDs/estelas y MJPEG en loopback, publicación 10 FPS.
+  CountingConfig sin ajuste físico, línea/banda ocultas y conteos provisionales.
+  Sustitución por IP en copia local documentada, con mismo perfil para productor/panel.
+- --metrics optativo en run_demo para stream/webcam: capture_fps estimado por
+  índices/timestamps del hilo de captura, inference_fps por inferencias completadas
+  y reloj monotónico, medias YOLO/ByteTrack usando last_timings ya existente,
+  reemplazos de cola y saltos por stride separados. Solo acumuladores numéricos,
+  stderr periódico + resumen stdout, sin URLs/IDs/frames. Telemetría/API/dashboard
+  conservan contratos; fps histórico sigue siendo promedio del pipeline.
+- Unitarios con reloj/índices controlados verifican cola descartada, stride,
+  tasas independientes, medias, ventana insuficiente y reloj de captura inválido.
+  Integración HTTP real solo loopback con multipart/boundary/X-Timestamp de
+  Espressif, frames negros 320×240 en RAM: origen reconocido por StreamSource.
+- Prueba con PersonDetector real y respuesta de tracking simulada produce 1 IN /
+  1 OUT, ocupación final 0, cajas/ID/estelas. Contador/overlay/MJPEG/publicador/API
+  reales. AppTest consulta esa API real: video listo, telemetría, métricas,
+  fuente HTTP/RTSP y controles presentes, sin errores ni revisión de calibración
+  modificada por lectura; YAML temporal intacto. No es precisión con personas.
+- Smoke separado: pesos YOLOv8n locales disponibles, tres inferencias reales CPU
+  sobre MJPEG sintético negro, ByteTrack real instanciado y tiempo de inferencia
+  positivo. No se descargaron pesos ni se usaron imágenes con personas. Esta prueba
+  certifica ejecución sobre HTTP, no detección física, recall o identidad de pasajeros.
+- Nuevas pruebas pertinentes: **12 passed in 4.76s**. Fuentes anteriores, detector,
+  dashboard, calibración y firmware cubiertos por regresión completa:
+  `.venv/bin/python -m pytest -q` con loopback/Chrome autorizados → **365 passed
+  in 25.10s**, sin fallos ni omisiones en este Mac. run_demo --help y compileall
+  ejecutados; diff --check sin errores. No quedó software sin resolver.
+- Comparación SHA-256 contra baseline inicial: todos los archivos de firmware
+  (excepto README autorizado), AGENTS y configuraciones preexistentes idénticos.
+  Sin lectura/copia/modificación de videos privados ni persistencia de imágenes.
+  El chequeo inicial del checkpoint detectó espacios finales del Markdown de
+  contexto; retirados antes de su commit, sin cambio de evidencia ni código.
+- README y guía de firmware actualizados con arranque/red, perfil único,
+  sustitución por IP, dashboard local y métricas con límites de reloj/ventana.
+  **Pendiente tras carcasa:** detecciones/IDs reales, FPS bajo carga, latencia,
+  estabilidad y encuadre. Calibración/precisión de conteo requieren una etapa
+  posterior con referencia manual; no se declaran resueltas por estos tests.

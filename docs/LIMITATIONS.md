@@ -326,3 +326,29 @@ continúa informando error de cierre, como antes de la corrección.
   WebServer del core fue inspeccionado y compilado para ESP32, no ejecutado en
   hardware durante esta corrección. Si Chrome/Chromium no está instalado, esos
   dos tests adicionales se omiten; los tests C++ de validación se mantienen.
+
+## Integración preparada mientras falta carcasa — 2026-10-21
+
+- Configuración ESP32 lista sobre el StreamSource existente. Sin nueva sesión
+  física del agente: recepción del checkpoint es evidencia del usuario. YOLO/
+  ByteTrack se ejecutaron con MJPEG sintético en CPU, no personas de esta cámara.
+  Cajas/IDs/cruces/estelas se comprobaron con respuestas de detector simuladas y
+  el resto del pipeline real, incluida API y AppTest; no se certifica recall ni
+  identidad física. Pesos locales requeridos, sin descarga automática; el test
+  real YOLO se omite si no existen (en este Mac sí existen).
+- Esperar carcasa antes de detección física, latencia/estabilidad y evaluación de
+  encuadre. Conteos del perfil usan valores sin calibración y son provisionales.
+  No se ajustaron líneas, bandas, sentidos, ROI, filtros ni tracker. Controles del
+  dashboard disponibles, pero no mover/guardar en esta etapa. Video local opcional
+  por perfil; sin guardado de frames. Firmware validado sin tocar.
+- --metrics ofrece tasas estimadas: capture_fps usa delta índice/timestamp de
+  captura entre frames recibidos por el consumidor; incluye reemplazos de cola
+  en ese intervalo, no frames previos al primero ni posteriores al último. No es
+  FPS del sensor ni latencia; timestamp Unix puede saltar y sesgarlo (no creciente
+  produce null). inference_fps es throughput observado, con espera/primera
+  inferencia, mientras yolo_inference_ms_mean mide solo la etapa Ultralytics.
+  Tracking inicial puede ser cero hasta instalar el wrapper del callback.
+- No hay benchmark vivo con warmup ni nuevos resultados físicos de inferencia.
+  Los FPS del dashboard conservan el promedio histórico; publicación JPEG local
+  a 10 FPS no limita la captura ni certifica visualización a la misma tasa.
+  Usar un lector de stream a la vez; no abrir check_stream simultáneo a APC.
