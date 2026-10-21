@@ -1,5 +1,10 @@
 # Progreso
 
+**Firmware de cámara 2026-10-21:** implementado en `firmware/esp32-camera`,
+compilado para XIAO ESP32S3/OV3660 y probado localmente: **351 tests aprobados**
+(12 nuevos). Sin flashear; aceptación física Wi-Fi/BOOT/LED/powerbank pendiente.
+Defaults y código de producción Python intactos. Detalle al final de este registro.
+
 **Resumen 2026-10-10:** primera evaluación de demo3: **6 IN / 4 OUT frente a 6/6**,
 error agregado 16,67%. El archivo entrega 848×476 / 29,964 FPS, no 1280×720.
 Dos OUT se omiten por cajas ensanchadas después de ByteTrack, rechazo de área y
@@ -888,3 +893,68 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
 - GitHub rechazó el push directo a `main` (GH013): la rama está protegida y
   exige pull request. Se publica el cambio en `docs/rename-transitflow-apc`
   para revisión; la integración a `main` queda pendiente del flujo protegido.
+
+## Firmware propio ESP32 — 2026-10-21
+
+- Inspeccionados AGENTS, historial completo de este registro, contexto de hardware,
+  fuentes/configuración Python, decisiones y limitaciones antes de editar.
+  HEAD inicial a774fa4; main local ya estaba un commit por delante. Preservados
+  cambios preparados del usuario en AGENTS/default y documentos locales sin
+  seguimiento. No se modifica producción Python, perfiles ni videos privados.
+- Referencia oficial Arduino-ESP32 3.3.12 preservada desde archivo instalado con
+  SHA-256 verificado contra metadatos del paquete. SSID/password vacíos, manifiesto
+  por archivo, licencia y límite explícito: la versión del binario anterior no
+  quedó registrada. No se copiaron sketches privados ni se leyó/escribió la placa.
+- Firmware independiente con Preferences/WiFi/WebServer del core, AP WPA2 temporal
+  APC-Metro-Setup, formulario en 192.168.4.1, escaneo asíncrono/manual y clave AP
+  aleatoria local ignorada (no mostrada). Nueva red persiste solo tras IP; NVS
+  fallida/candidata inválida conserva anterior. Timeout 25 s, AP 10 min, recuperación
+  por BOOT al soltar 3 s / borrado al soltar ≥10 s, limpieza de STA legada incluida.
+- Cámara oficial JPEG/PSRAM/OV3660 y panel conservados; ruta :81/stream confirmada
+  en fuente, parada segura antes de AP y arranque tras apagar AP/portal. LED21
+  LOW no bloqueante, microSD excluida por compartir CS. mDNS/dns-sd con respaldo
+  IP serial/DHCP, sin logs SSID/clave. Portal enlazado a interfaz AP, validaciones
+  de Host/Origin/token, no-store; sin CORS comodín de video ni cloud/OTA.
+- Compilación real CLI 1.5.1/core 3.3.12, XIAO_ESP32S3, PSRAM=opi, FlashSize=8M,
+  CDCOnBoot=default, PartitionScheme=default_8MB, DebugLevel=none:
+  firmware final **1.086.918 bytes / 3.342.336 (32%)**, globales **72.936 / 327.680
+  (22%)**. Referencia oficial sin claves: **997.618 bytes (29%)**, globales
+  **68.504 (20%)**. Ambos compilados sin errores; no se subieron al dispositivo.
+- Tests nuevos: **12 passed in 2.62s** inicialmente. Política C++17 con warnings
+  como errores: timeouts, ida a setup/reconexión, rollover millis, LED, rebote/BOOT,
+  validación de credenciales. Controlador C++ real con HAL simulada: AP/video
+  excluyentes, Host/Origin/CSRF/interfaz, NUL/clave inválida, persistencia tras IP,
+  fallo de escritura, conservación de anterior y borrado. Preparación valida
+  hashes y clave privada; secretos no se imprimen ni sustituyen accidentalmente.
+- HTTP real solo loopback: formato multipart/boundary/X-Timestamp de Espressif,
+  JPEG sintético en RAM, lectura con StreamSource existente; sin imágenes a disco.
+  CLI `check_stream.py` usa ese mismo camino para la futura prueba física y
+  devuelve solo métricas. Regresión final con sockets locales autorizados:
+  `.venv/bin/python -m pytest -q` → **351 passed in 19.66s**, cero fallos.
+- Comandos manage --help/ports y check_stream --help ejecutados. Un intento del
+  último con Python del sistema falló por falta de PyYAML; corregido al usar
+  `.venv/bin/python`, como indica la guía, sin instalar dependencias ni cambios
+  de producción. No queda fallo local sin resolver. `ports` no encontró XIAO USB:
+  solo puertos Bluetooth/debug; no se intentó upload ni acceso a una IP de cámara.
+- `compileall` y comprobaciones de espacios/enlaces/ausencia de clave AP en
+  archivos publicables sin errores. Demo Python sintética ejecutada: **12 frames,
+  11,92 FPS, IN=0/OUT=0**, sin cámara/YOLO ni grabación; su ritmo es artificial,
+  no benchmark. Primer intento bloqueado por sockets del sandbox, repetido con
+  loopback autorizado y resuelto sin modificar código ni configuraciones.
+- Al preparar el commit, `diff --cached --check` señaló los espacios de contexto
+  vacío obligatorios del archivo unified diff. Resuelto con atributo whitespace
+  acotado a `patches/*.patch`; no se alteró ni se relajó la revisión del C++.
+- Documentación concreta de compilación/USB, casa, iPhone (compatibilidad 2,4 GHz),
+  powerbank, red ausente/cambio/reset, descubrimiento e integración por perfil
+  ignorado; matriz de aceptación **pendiente de usuario con placa**. BOOT/LED,
+  aislamiento por radio, persistencia física/cortes, streaming OV3660, rendimiento
+  y conteo no se declaran verificados por tests simulados o compilación.
+- `configs/default.yaml` conserva hash inicial
+  `978927e6fa59a1a69b0d48734690f7b8d328e2d94853b940313da76f93a465d4`.
+  Fuentes, parámetros de conteo, resultados históricos y medios privados intactos.
+  Compilados/clave quedan ignorados; no se versionan artefactos que los contengan.
+- Commits separados de referencia (`2b03fbc`) y firmware/tests (`706e38c`), más
+  guía/resultados. Rama de entrega `feat/esp32-camera-setup`, creada desde el HEAD
+  local existente (incluye como antecedente a774fa4 de renombrado). Main requiere
+  PR; no se intenta forzar su actualización ni incluir cambios previos preparados.
+  Siguiente: subir por USB y ejecutar la matriz física antes de aceptar sustitución.

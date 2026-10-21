@@ -421,3 +421,58 @@
 - Conservar cada JSON byte por byte. Sus rutas internas anteriores son evidencia
   histórica y permanecen intactas; los enlaces y comandos Markdown usan las rutas
   nuevas. No hay referencias anteriores en scripts, configuraciones ni tests.
+
+## Firmware de cámara independiente — 2026-10-21
+
+- Mantener el proyecto Python y sus configuraciones intactos. El firmware vive
+  en `firmware/esp32-camera`; no añadir dependencias Python ni cambiar StreamSource.
+  El diagnóstico optativo abre el endpoint mediante esa clase existente y solo
+  informa números; no graba, muestra ni transmite imágenes fuera de la LAN.
+- Fijar Arduino-ESP32 **3.3.12**, versión instalada, y placa XIAO ESP32S3 con
+  OPI PSRAM, 8MB, CDC habilitado y particiones default_8MB. No usar PlatformIO:
+  Arduino CLI ya está instalado y permite reproducir las opciones validadas
+  sin introducir otra plataforma/core. CLI rechaza un core seleccionado distinto.
+- Preservar fuente oficial en vendor y hashes del archivo oficial descargado.
+  Eliminar del `.ino` las dos credenciales, sin copiar sketches privados. No se
+  registró la versión exacta del binario grabado antes: la referencia 3.3.12 es
+  reproducible, pero no se afirma que sea idéntica a ese binario. No flashear en
+  esta sesión sin placa disponible; el ejemplo actual permanece en el dispositivo.
+- Preferir **Preferences + WiFi + WebServer**, incluidas en el core, a WiFiManager.
+  Solo se requiere una red, selección por escaneo y formulario por IP; un gestor
+  externo/captive DNS añadiría compatibilidad/dependencias innecesarias. Guardar
+  una pareja completa como blob versionado NVS **solo después de obtener IP**;
+  un fallo de asociación o de escritura conserva la red anterior. Wi-Fi del
+  core usa almacenamiento RAM para no persistir candidatas inválidas.
+- AP WPA2 `APC-Metro-Setup`, IP fija 192.168.4.1, clave aleatoria de 128 bits
+  generada localmente, ignorada y con permisos 600; sin clave universal publicada.
+  La clave AP se incorpora al binario, las de redes se introducen únicamente por
+  POST local y quedan en NVS. No imprimir SSID/clave por serial. Binarios/cachés
+  generados son privados; hashes de integridad no sustituyen protección de flash.
+- Timeout de asociación de 25 s; sesión AP de 10 min. Con red previa, al expirar
+  vuelve a intentar; sin ella apaga radio hasta BOOT/encendido. Si falla una nueva
+  red vuelve al portal sin borrar la anterior. Durante asociación candidata hay
+  AP+STA; el WebServer está enlazado a la IP AP, y además comprueba interfaz,
+  subnet de cliente, Host, Origin y token de POST. Se detiene la cámara antes de
+  crear AP y se cierra portal/AP antes de arrancar video en STA.
+- Mantener panel oficial en 80 y multipart MJPEG `/stream` en 81. Parche mínimo
+  para detener/reiniciar ambos httpd, terminar lectores y liberar filtro; aplicar
+  con hashes y contexto exactos sobre una copia ignorada. Timeout HTTP de 2 s y
+  reintento de arranque HTTP cada 10 s. Conservar JPEG/PSRAM/grab/OV3660/QVGA y
+  Wi-Fi sin sleep; retirar CORS comodín, añadir no-store donde se servían imágenes.
+  Mantener controles oficiales y contrato OpenCV, sin añadir autenticación al video.
+- BOOT/GPIO0 se lee INPUT_PULLUP solo durante ejecución, con debounce de 50 ms,
+  armado tras observarlo libre y acción al soltar: 3–9 s abre setup, ≥10 s borra
+  NVS propia y antigua configuración STA en flash. Sin reboot, escritura de GPIO0
+  ni eFuses. El strapping ROM al mantener BOOT en reset es inevitable y se
+  documenta; no declarar verificado el comportamiento físico con tests simulados.
+- GPIO21 activo LOW: alternancia 600 ms buscando / 120 ms en setup y candidata /
+  fijo con IP. Sin delay ni espera activa de conexión. Comparte CS microSD según
+  Seeed: excluir SD de este firmware. LED informa red, errores de cámara por serial.
+- Anunciar hostname apc-metro y servicios Bonjour HTTP + `_apc-camera._tcp` con
+  ruta/puerto. Descubrimiento Mac mediante dns-sd; respaldo por IP serial y leases
+  DHCP/reserva del router. No escanear redes/IP ni suponer mDNS operativo en hotspot.
+- Pruebas: ejecutar política C++ y controlador real con HAL simulada (aislamiento,
+  NVS fallida, candidatos y recuperación), build nuevo/referencia y MJPEG HTTP
+  sintético leído por StreamSource, además de regresión Python completa. La matriz
+  física casa/iPhone/powerbank/BOOT/red ausente queda explícitamente pendiente.
+  No certificar FPS físicos ni precisión de conteo a partir de estas pruebas.

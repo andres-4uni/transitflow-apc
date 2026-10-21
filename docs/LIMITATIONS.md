@@ -273,3 +273,41 @@ continúa informando error de cierre, como antes de la corrección.
 - La regresión 720p es sintética con detector simulado; verifica coordenadas,
   eventos y ausencia de mutación del frame. No prueba recall YOLO, identidad de
   personas, precisión APC ni hardware físico. La precisión sigue pendiente.
+
+## Firmware propio de cámara — 2026-10-21
+
+- Compilación y tests locales aprobados, **sin flashear ni validar hardware**.
+  El CameraWebServer anterior sí fue probado por el usuario con Wi-Fi/powerbank;
+  esa evidencia no certifica el firmware nuevo. Matriz física pendiente en
+  [la guía](../firmware/esp32-camera/README.md): casa, iPhone 16 Pro Max, arranque
+  powerbank, LED/BOOT, cambios de red, ausencia, borrado, aislamiento y estabilidad.
+- `/stream` en 81 está confirmado en fuente. La prueba HTTP/OpenCV se ejecuta
+  sobre MJPEG sintético con el formato oficial, no sobre OV3660 real. Falta medir
+  tasa recibida, latencia, calidad/encuadre APC, consumo, autonomía y temperatura.
+  QVGA inicial reproduce el ejemplo; no garantiza resolución suficiente para YOLO.
+- No se conoce versión/sketch exacto del firmware anterior grabado. Se conserva
+  referencia oficial 3.3.12 reproducible, no copia binaria exacta de la flash.
+- LED comparte GPIO21 con CS microSD: tarjeta/SD excluidos. BOOT/GPIO0 también
+  selecciona modo ROM al reset: solo debe mantenerse 3/10 s **en ejecución** y
+  soltarse para actuar. No hay firmware que impida el strapping previo al arranque.
+- Una sola red persistente. Wi-Fi 2,4 GHz, personal o abierta; sin WPA Enterprise,
+  portales de red destino, TLS, IPv6 ni roaming multirred. Evitar red destino
+  192.168.4.0/24 por conflicto con AP. Escaneo es una instantánea; recargar/reabrir
+  setup para actualizarlo, o escribir SSID manualmente. No hay portal cautivo DNS.
+- La clave AP privada reside en el binario y las de redes en NVS **sin cifrado**;
+  lectura física de flash puede exponerlas. Borrado es lógico, no forense. Quien
+  conoce la clave AP tiene acceso al portal; HTTP no añade TLS. No se activan
+  secure boot/eFuses. Cambiar clave AP perdida requiere recompilar/subir por USB.
+- Video/panel HTTP sin autenticación en la LAN, igual que el ejemplo. Usar red
+  privada y sin reenvíos de 80/81, DMZ ni túneles. No ofrece aislamiento de usuarios
+  dentro de esa LAN. El firmware no configura firewall del router ni puede
+  garantizar su configuración. No se añaden cloud, UPnP, routing ni NAT.
+- Bonjour depende de multicast y del router; `.local` no garantiza descubrimiento.
+  Serial y lista DHCP del router son los respaldos. Hotspot del iPhone requiere
+  Maximizar compatibilidad para 2,4 GHz; acceso Mac→ESP entre clientes pendiente.
+- HTTP de streaming oficial sirve un lector prolongado por servidor: cerrar
+  streaming del navegador antes de abrir APC. Cerrar un lector lento al entrar
+  en setup puede tardar unos segundos por timeout; no afecta la temporización
+  del LED durante streaming estable. Reintentos HTTP no corrigen fallos de sensor.
+  StreamSource Python conserva su contrato de terminar ante caída: reiniciar APC
+  después de recuperar Wi-Fi; no hay reconexión transparente añadida al pipeline.

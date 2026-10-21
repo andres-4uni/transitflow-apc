@@ -6,6 +6,11 @@ Prototipo universitario de conteo de pasajeros. Procesamiento local en notebook
 sin GPU; no almacena frames, rostros ni videos de salida. El modo normal publica
 solo telemetría numérica; el video local anotado es una opción de demostración.
 
+Firmware independiente para **XIAO ESP32S3 Sense + OV3660**, con configuración
+Wi-Fi por AP protegido, NVS y LED: [guía de cámara](firmware/esp32-camera/README.md).
+Compilado y probado con hardware simulado; la carga y aceptación física del nuevo
+firmware siguen pendientes. No modifica los defaults ni el pipeline de conteo.
+
 ## Instalación (Python 3.11)
 
 ```sh
