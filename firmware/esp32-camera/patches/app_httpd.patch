@@ -1,0 +1,197 @@
+--- a/app_httpd.cpp
++++ b/app_httpd.cpp
+@@ -13,6 +13,8 @@
+ // limitations under the License.
+ 
+ #include "Arduino.h"
++#include <atomic>
++#include "camera_runtime.h"
+ #include "esp_http_server.h"
+ #include "esp_timer.h"
+ #include "esp_camera.h"
+@@ -46,6 +48,8 @@
+ static const char *_STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
+ static const char *_STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\nX-Timestamp: %d.%06d\r\n\r\n";
+ 
++// Permite terminar un lector MJPEG antes de abrir el AP de configuración.
++static std::atomic<bool> stream_enabled{false};
+ httpd_handle_t stream_httpd = NULL;
+ httpd_handle_t camera_httpd = NULL;
+ 
+@@ -117,7 +121,7 @@
+ 
+   httpd_resp_set_type(req, "image/x-windows-bmp");
+   httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.bmp");
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+ 
+   char ts[32];
+   // Cast to uint32_t is safe until year 2106.
+@@ -178,7 +182,7 @@
+ 
+   httpd_resp_set_type(req, "image/jpeg");
+   httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.jpg");
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+ 
+   char ts[32];
+   // Cast to uint32_t is safe until year 2106.
+@@ -227,7 +231,7 @@
+     return res;
+   }
+ 
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   httpd_resp_set_hdr(req, "X-Framerate", "60");
+ 
+ #if defined(LED_GPIO_NUM)
+@@ -235,7 +239,7 @@
+   enable_led(true);
+ #endif
+ 
+-  while (true) {
++  while (stream_enabled.load()) {
+     fb = esp_camera_fb_get();
+     if (!fb) {
+       log_e("Camera capture failed");
+@@ -410,7 +414,7 @@
+     return httpd_resp_send_500(req);
+   }
+ 
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, NULL, 0);
+ }
+ 
+@@ -490,7 +494,7 @@
+   *p++ = '}';
+   *p++ = 0;
+   httpd_resp_set_type(req, "application/json");
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, json_response, strlen(json_response));
+ }
+ 
+@@ -517,7 +521,7 @@
+     return httpd_resp_send_500(req);
+   }
+ 
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, NULL, 0);
+ }
+ 
+@@ -549,7 +553,7 @@
+     return httpd_resp_send_500(req);
+   }
+ 
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, NULL, 0);
+ }
+ 
+@@ -579,7 +583,7 @@
+ 
+   char buffer[20];
+   const char *val = itoa(res, buffer, 10);
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, val, strlen(val));
+ }
+ 
+@@ -615,7 +619,7 @@
+     return httpd_resp_send_500(req);
+   }
+ 
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, NULL, 0);
+ }
+ 
+@@ -650,7 +654,7 @@
+     return httpd_resp_send_500(req);
+   }
+ 
+-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+   return httpd_resp_send(req, NULL, 0);
+ }
+ 
+@@ -672,9 +676,22 @@
+   }
+ }
+ 
+-void startCameraServer() {
++void stopCameraServer() {
++  stream_enabled.store(false);
++  if (stream_httpd) { httpd_stop(stream_httpd); stream_httpd = NULL; }
++  if (camera_httpd) { httpd_stop(camera_httpd); camera_httpd = NULL; }
++  free(ra_filter.values);
++  memset(&ra_filter, 0, sizeof(ra_filter));
++}
++
++bool startCameraServer() {
++  if (camera_httpd && stream_httpd) return true;
++  stopCameraServer();
+   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+   config.max_uri_handlers = 16;
++  config.server_port = 80;
++  config.send_wait_timeout = 2;
++  config.recv_wait_timeout = 2;
+ 
+   httpd_uri_t index_uri = {
+     .uri = "/",
+@@ -819,29 +836,37 @@
+ #endif
+   };
+ 
+-  ra_filter_init(&ra_filter, 20);
++  if (!ra_filter_init(&ra_filter, 20)) return false;
++  stream_enabled.store(true);
+ 
+   log_i("Starting web server on port: '%u'", config.server_port);
+-  if (httpd_start(&camera_httpd, &config) == ESP_OK) {
+-    httpd_register_uri_handler(camera_httpd, &index_uri);
+-    httpd_register_uri_handler(camera_httpd, &cmd_uri);
+-    httpd_register_uri_handler(camera_httpd, &status_uri);
+-    httpd_register_uri_handler(camera_httpd, &capture_uri);
+-    httpd_register_uri_handler(camera_httpd, &bmp_uri);
+-
+-    httpd_register_uri_handler(camera_httpd, &xclk_uri);
+-    httpd_register_uri_handler(camera_httpd, &reg_uri);
+-    httpd_register_uri_handler(camera_httpd, &greg_uri);
+-    httpd_register_uri_handler(camera_httpd, &pll_uri);
+-    httpd_register_uri_handler(camera_httpd, &win_uri);
++  if (httpd_start(&camera_httpd, &config) != ESP_OK) {
++    stopCameraServer();
++    return false;
++  } else {
++    if (httpd_register_uri_handler(camera_httpd, &index_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &cmd_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &status_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &capture_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &bmp_uri) != ESP_OK) { stopCameraServer(); return false; }
++
++    if (httpd_register_uri_handler(camera_httpd, &xclk_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &reg_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &greg_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &pll_uri) != ESP_OK) { stopCameraServer(); return false; }
++    if (httpd_register_uri_handler(camera_httpd, &win_uri) != ESP_OK) { stopCameraServer(); return false; }
+   }
+ 
+   config.server_port += 1;
+   config.ctrl_port += 1;
+   log_i("Starting stream server on port: '%u'", config.server_port);
+-  if (httpd_start(&stream_httpd, &config) == ESP_OK) {
+-    httpd_register_uri_handler(stream_httpd, &stream_uri);
+-  }
++  if (httpd_start(&stream_httpd, &config) != ESP_OK) {
++    stopCameraServer();
++    return false;
++  } else {
++    if (httpd_register_uri_handler(stream_httpd, &stream_uri) != ESP_OK) { stopCameraServer(); return false; }
++  }
++  return true;
+ }
+ 
+ void setupLedFlash() {

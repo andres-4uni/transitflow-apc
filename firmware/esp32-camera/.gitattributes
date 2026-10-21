@@ -1,0 +1,2 @@
+# El espacio inicial de las líneas de contexto vacías es sintaxis unified diff.
+patches/*.patch whitespace=-blank-at-eol
