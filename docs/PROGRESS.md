@@ -958,3 +958,9 @@ La regresión completa anterior de auditoría conserva **339 passed in 15.95s**.
   local existente (incluye como antecedente a774fa4 de renombrado). Main requiere
   PR; no se intenta forzar su actualización ni incluir cambios previos preparados.
   Siguiente: subir por USB y ejecutar la matriz física antes de aceptar sustitución.
+- Push de los tres commits completado a `origin/feat/esp32-camera-setup`, con
+  upstream configurado; main sin modificar. La primera revisión automática lo
+  retuvo por destino no verificado. Se comprobó por el conector GitHub que origin
+  coincide con el repositorio público de la cuenta autenticada, propietaria y
+  administradora; la revisión aceptó el mismo push con esa evidencia, sin cambiar
+  de destino ni incluir artefactos privados. No se ha creado ni fusionado PR.
